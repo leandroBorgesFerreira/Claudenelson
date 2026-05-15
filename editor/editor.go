@@ -84,15 +84,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "right":
 			m.doc.MoveRight()
 
-		case "home":
+		case "home", "ctrl+a", "alt+left":
 			m.doc.MoveToLineStart()
 
-		case "end":
+		case "end", "ctrl+e", "alt+right":
 			m.doc.MoveToLineEnd()
 
 		case "backspace":
 			if !m.doc.DeleteCharBackward() {
-				m.mergeWithPreviousBlock()
+				// At start of line - try to convert special blocks to text first
+				if !m.convertToTextBlock() {
+					m.mergeWithPreviousBlock()
+				}
 			}
 
 		case "delete":
@@ -106,6 +109,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case " ":
 			// Insert space character
 			m.doc.InsertChar(' ')
+			// Check for block type triggers
+			m.checkBlockTriggers()
 
 		default:
 			// Handle regular character input
@@ -151,6 +156,102 @@ func (m *Model) handleEnter() {
 	// Move cursor to start of new block
 	m.doc.MoveDown()
 	m.doc.CursorCol = 0
+}
+
+// checkBlockTriggers checks if the current content matches a block trigger pattern
+// and converts the block type accordingly
+func (m *Model) checkBlockTriggers() {
+	currentBlock := m.doc.CurrentBlock()
+	if currentBlock == nil {
+		return
+	}
+
+	// Only trigger on text blocks
+	if currentBlock.Type() != block.TypeText {
+		return
+	}
+
+	content := currentBlock.Content()
+
+	// Check for checkbox patterns at start of line
+	if strings.HasPrefix(content, "[] ") {
+		// Convert to unchecked checkbox
+		newContent := strings.TrimPrefix(content, "[] ")
+		newBlock := m.factory.CreateCheckbox(newContent, false)
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		m.doc.CursorCol = 0
+		return
+	}
+
+	if strings.HasPrefix(content, "[x] ") || strings.HasPrefix(content, "[X] ") {
+		// Convert to checked checkbox
+		newContent := content[4:] // Remove "[x] " or "[X] "
+		newBlock := m.factory.CreateCheckbox(newContent, true)
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		m.doc.CursorCol = 0
+		return
+	}
+
+	// Check for list item pattern
+	if strings.HasPrefix(content, "- ") {
+		newContent := strings.TrimPrefix(content, "- ")
+		newBlock := m.factory.CreateListItem(newContent)
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		m.doc.CursorCol = 0
+		return
+	}
+
+	// Check for heading patterns (longest first)
+	if strings.HasPrefix(content, "#### ") {
+		newContent := strings.TrimPrefix(content, "#### ")
+		newBlock := m.factory.CreateHeading(newContent, 4)
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		m.doc.CursorCol = 0
+		return
+	}
+	if strings.HasPrefix(content, "### ") {
+		newContent := strings.TrimPrefix(content, "### ")
+		newBlock := m.factory.CreateHeading(newContent, 3)
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		m.doc.CursorCol = 0
+		return
+	}
+	if strings.HasPrefix(content, "## ") {
+		newContent := strings.TrimPrefix(content, "## ")
+		newBlock := m.factory.CreateHeading(newContent, 2)
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		m.doc.CursorCol = 0
+		return
+	}
+	if strings.HasPrefix(content, "# ") {
+		newContent := strings.TrimPrefix(content, "# ")
+		newBlock := m.factory.CreateHeading(newContent, 1)
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		m.doc.CursorCol = 0
+		return
+	}
+}
+
+// convertToTextBlock converts checkbox/list blocks to text blocks
+// Returns true if a conversion was made, false otherwise
+func (m *Model) convertToTextBlock() bool {
+	currentBlock := m.doc.CurrentBlock()
+	if currentBlock == nil {
+		return false
+	}
+
+	blockType := currentBlock.Type()
+	if blockType != block.TypeCheckboxItem && blockType != block.TypeListItem {
+		return false
+	}
+
+	// Create a new text block with the same content
+	newBlock := m.factory.CreateText(currentBlock.Content())
+
+	// Replace the current block
+	m.doc.Blocks[m.doc.CursorLine] = newBlock
+
+	return true
 }
 
 // mergeWithPreviousBlock merges current block content into previous block
@@ -242,7 +343,7 @@ func (m Model) View() string {
 
 	// Help text
 	b.WriteString("\n")
-	help := styles.HelpStyle.Render("←/→: Move cursor • ↑/↓: Move block • Enter: Split block • Backspace/Delete: Edit • Ctrl+C: Quit")
+	help := styles.HelpStyle.Render("←/→: Cursor • ⌥←/⌥→: Line start/end • ↑/↓: Block • Enter: Split • Ctrl+C: Quit")
 	b.WriteString(help)
 	b.WriteString("\n")
 
