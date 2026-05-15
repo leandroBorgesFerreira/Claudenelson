@@ -1,0 +1,93 @@
+{
+  "blocks": [
+    {
+      "id": "block-1",
+      "type": "h1",
+      "content": "Welcome to the Block Editor",
+      "level": 1
+    },
+    {
+      "id": "block-2",
+      "type": "text",
+      "content": "This is a Notion-like block-based editor."
+    },
+    {
+      "id": "block-3",
+      "type": "h2",
+      "content": "Features",
+      "level": 2
+    },
+    {
+      "id": "block-4",
+      "type": "list_item",
+      "content": "Text blocks for paragraphs"
+    },
+    {
+      "id": "block-5",
+      "type": "list_item",
+      "content": "Headings (H1 through H4)"
+    },
+    {
+      "id": "block-32",
+      "type": "list_item",
+      "content": "Checkbox/todo items"
+    },
+    {
+      "id": "block-7",
+      "type": "h3",
+      "content": "Todo List",
+      "level": 3
+    },
+    {
+      "id": "block-8",
+      "type": "text",
+      "content": "as"
+    },
+    {
+      "id": "block-9",
+      "type": "text",
+      "content": "das"
+    },
+    {
+      "id": "block-12",
+      "type": "text",
+      "content": "a"
+    },
+    {
+      "id": "block-13",
+      "type": "text",
+      "content": "sd"
+    },
+    {
+      "id": "block-14",
+      "type": "checkbox",
+      "content": "Implement block rendering",
+      "checked": true
+    },
+    {
+      "id": "block-15",
+      "type": "checkbox",
+      "content": "Add navigation with arrow keys",
+      "checked": true
+    },
+    {
+      "id": "block-16",
+      "type": "checkbox",
+      "content": "Add editing capabilities",
+      "checked": false
+    },
+    {
+      "id": "block-17",
+      "type": "h4",
+      "content": "Navigation",
+      "level": 4
+    },
+    {
+      "id": "block-18",
+      "type": "text",
+      "content": "Use Up/Down arrows to move between blocks."
+    }
+  ],
+  "cursorLine": 5,
+  "cursorCol": 0
+}
