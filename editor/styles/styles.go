@@ -3,26 +3,24 @@ package styles
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	// Heading styles
+	// Heading styles - visually distinct without # prefix
 	H1Style = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("99"))
+		Foreground(lipgloss.Color("212")).
+		Underline(true)
 
 	H2Style = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("69"))
+		Foreground(lipgloss.Color("213"))
 
 	H3Style = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("63"))
+		Foreground(lipgloss.Color("141"))
 
 	H4Style = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("57"))
-
-	// Heading prefix styles (dimmed)
-	HeadingPrefixStyle = lipgloss.NewStyle().
-				Faint(true)
+		Foreground(lipgloss.Color("147")).
+		Italic(true)
 
 	// Text style
 	TextStyle = lipgloss.NewStyle().

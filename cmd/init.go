@@ -10,13 +10,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var filePath string
+
 var initCmd = &cobra.Command{
 	Use:   "init",
 	Short: "Launch the text editor",
 	Long:  "Launches the BubbleTea-based text editor with interactive color-changing text.",
 	Run: func(cmd *cobra.Command, args []string) {
 		p := tea.NewProgram(
-			editor.New(),
+			editor.New(filePath),
 			tea.WithMouseCellMotion(),
 		)
 
@@ -28,5 +30,6 @@ var initCmd = &cobra.Command{
 }
 
 func init() {
+	initCmd.Flags().StringVarP(&filePath, "file", "f", "document.json", "Path to save/load document")
 	rootCmd.AddCommand(initCmd)
 }

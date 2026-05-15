@@ -1,7 +1,9 @@
 package editor
 
 import (
+	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 
@@ -9,8 +11,14 @@ import (
 	"claudenelson/editor/document"
 	"claudenelson/editor/drawer"
 	"claudenelson/editor/factory"
+	"claudenelson/editor/persistence"
 	"claudenelson/editor/styles"
 )
+
+const saveDelay = 500 * time.Millisecond
+
+// saveTickMsg is sent when the save timer fires
+type saveTickMsg time.Time
 
 // Sample document content in markdown-like format
 var sampleContent = `# Welcome to the Block Editor
@@ -28,26 +36,56 @@ Use Up/Down arrows to move between blocks.`
 
 // Model represents the editor state
 type Model struct {
-	doc      *document.Document
-	factory  *factory.BlockFactory
-	registry *drawer.DrawerRegistry
-	width    int
-	height   int
+	doc       *document.Document
+	factory   *factory.BlockFactory
+	registry  *drawer.DrawerRegistry
+	width     int
+	height    int
+	savePath  string    // Path to save document
+	dirty     bool      // Document has unsaved changes
+	saveTimer time.Time // Last modification time
 }
 
-// New creates a new editor model with sample content
-func New() Model {
+// getBlockAtY returns the block index at the given Y position, or -1 if none
+func (m Model) getBlockAtY(y int) int {
+	// View structure:
+	// Line 0: Title
+	// Line 1: Empty
+	// Line 2+: Blocks (one per line)
+	// Note: offset may need adjustment based on terminal behavior
+	const headerLines = 8
+	blockIndex := y - headerLines
+	if blockIndex >= 0 && blockIndex < m.doc.BlockCount() {
+		return blockIndex
+	}
+	return -1
+}
+
+// New creates a new editor model with sample content or loads from file
+func New(savePath string) Model {
 	f := factory.NewBlockFactory()
 	r := drawer.NewDrawerRegistry()
 	r.RegisterAll()
 
-	doc := document.NewDocument()
+	var doc *document.Document
 
-	// Parse sample content into blocks
-	lines := strings.Split(sampleContent, "\n")
-	for _, line := range lines {
-		b := f.CreateFromLine(line)
-		doc.AddBlock(b)
+	// Try to load existing document from file
+	if savePath != "" {
+		if _, err := os.Stat(savePath); err == nil {
+			if loadedDoc, err := persistence.Load(savePath, f); err == nil {
+				doc = loadedDoc
+			}
+		}
+	}
+
+	// If no document was loaded, create with sample content
+	if doc == nil {
+		doc = document.NewDocument()
+		lines := strings.Split(sampleContent, "\n")
+		for _, line := range lines {
+			b := f.CreateFromLine(line)
+			doc.AddBlock(b)
+		}
 	}
 
 	return Model{
@@ -56,20 +94,50 @@ func New() Model {
 		registry: r,
 		width:    80,
 		height:   24,
+		savePath: savePath,
+		dirty:    false,
 	}
+}
+
+// scheduleSave returns a tea.Cmd that fires after saveDelay
+func (m Model) scheduleSave() tea.Cmd {
+	return tea.Tick(saveDelay, func(t time.Time) tea.Msg {
+		return saveTickMsg(t)
+	})
+}
+
+// markDirty marks the document as having unsaved changes and schedules a save
+func (m *Model) markDirty() tea.Cmd {
+	m.dirty = true
+	m.saveTimer = time.Now()
+	return m.scheduleSave()
 }
 
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
-	return nil
+	return tea.EnableMouseCellMotion
 }
 
 // Update handles messages and updates the model
 func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+	var cmd tea.Cmd
+
 	switch msg := msg.(type) {
+	case saveTickMsg:
+		// Handle debounced save
+		if m.dirty && m.savePath != "" && time.Since(m.saveTimer) >= saveDelay {
+			persistence.Save(m.doc, m.savePath)
+			m.dirty = false
+		}
+		return m, nil
+
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c":
+			// Save before quitting if dirty
+			if m.dirty && m.savePath != "" {
+				persistence.Save(m.doc, m.savePath)
+			}
 			return m, tea.Quit
 
 		case "up":
@@ -97,20 +165,24 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.mergeWithPreviousBlock()
 				}
 			}
+			cmd = m.markDirty()
 
 		case "delete":
 			if !m.doc.DeleteCharForward() {
 				m.mergeWithNextBlock()
 			}
+			cmd = m.markDirty()
 
 		case "enter":
 			m.handleEnter()
+			cmd = m.markDirty()
 
 		case " ":
 			// Insert space character
 			m.doc.InsertChar(' ')
 			// Check for block type triggers
 			m.checkBlockTriggers()
+			cmd = m.markDirty()
 
 		default:
 			// Handle regular character input
@@ -118,15 +190,29 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				for _, r := range msg.Runes {
 					m.doc.InsertChar(r)
 				}
+				cmd = m.markDirty()
 			}
 		}
 
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+
+	case tea.MouseMsg:
+		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
+			blockIndex := m.getBlockAtY(msg.Y)
+			if blockIndex >= 0 {
+				m.doc.SetCursor(blockIndex)
+				// Toggle checkbox if clicked
+				if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
+					cb.Toggle()
+					cmd = m.markDirty()
+				}
+			}
+		}
 	}
 
-	return m, nil
+	return m, cmd
 }
 
 // handleEnter splits the current block at cursor and creates a new block
@@ -166,8 +252,13 @@ func (m *Model) checkBlockTriggers() {
 		return
 	}
 
-	// Only trigger on text blocks
-	if currentBlock.Type() != block.TypeText {
+	// Only trigger on text blocks and headings
+	blockType := currentBlock.Type()
+	isText := blockType == block.TypeText
+	isHeading := blockType == block.TypeH1 || blockType == block.TypeH2 ||
+		blockType == block.TypeH3 || blockType == block.TypeH4
+
+	if !isText && !isHeading {
 		return
 	}
 
@@ -232,7 +323,7 @@ func (m *Model) checkBlockTriggers() {
 	}
 }
 
-// convertToTextBlock converts checkbox/list blocks to text blocks
+// convertToTextBlock converts checkbox/list/heading blocks to text blocks
 // Returns true if a conversion was made, false otherwise
 func (m *Model) convertToTextBlock() bool {
 	currentBlock := m.doc.CurrentBlock()
@@ -241,17 +332,17 @@ func (m *Model) convertToTextBlock() bool {
 	}
 
 	blockType := currentBlock.Type()
-	if blockType != block.TypeCheckboxItem && blockType != block.TypeListItem {
+	switch blockType {
+	case block.TypeCheckboxItem, block.TypeListItem,
+		block.TypeH1, block.TypeH2, block.TypeH3, block.TypeH4:
+		// Create a new text block with the same content
+		newBlock := m.factory.CreateText(currentBlock.Content())
+		// Replace the current block
+		m.doc.Blocks[m.doc.CursorLine] = newBlock
+		return true
+	default:
 		return false
 	}
-
-	// Create a new text block with the same content
-	newBlock := m.factory.CreateText(currentBlock.Content())
-
-	// Replace the current block
-	m.doc.Blocks[m.doc.CursorLine] = newBlock
-
-	return true
 }
 
 // mergeWithPreviousBlock merges current block content into previous block
@@ -311,13 +402,15 @@ func (m *Model) mergeWithNextBlock() {
 func (m Model) View() string {
 	var b strings.Builder
 
-	// Title
+	// Title (line 0)
 	title := styles.TitleStyle.Render("claudenelson Block Editor")
-	b.WriteString("\n")
 	b.WriteString(title)
-	b.WriteString("\n\n")
+	b.WriteString("\n")
 
-	// Render each block
+	// Empty line (line 1)
+	b.WriteString("\n")
+
+	// Blocks start at line 2, one block per line
 	for i := 0; i < m.doc.BlockCount(); i++ {
 		blk := m.doc.BlockAt(i)
 		isFocused := i == m.doc.CursorLine

@@ -12,7 +12,7 @@ type HeadingDrawer struct {
 	Level int
 }
 
-// Draw renders a heading block with styled prefix and content
+// Draw renders a heading block with styled content (no prefix)
 func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
 	level := d.Level
 
@@ -21,8 +21,12 @@ func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
 		level = hb.Level()
 	}
 
-	prefix := strings.Repeat("#", level) + " "
 	content := b.Content()
+
+	// H1 is rendered in uppercase for emphasis
+	if level == 1 {
+		content = strings.ToUpper(content)
+	}
 
 	if ctx.ShowCursor && ctx.IsFocused {
 		content = InsertCursor(content, ctx.CursorPos, CursorChar)
@@ -38,10 +42,7 @@ func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
 		contentStyle = styles.H4Style
 	}
 
-	styledPrefix := styles.HeadingPrefixStyle.Render(prefix)
-	styledContent := contentStyle.Render(content)
-
-	return styledPrefix + styledContent
+	return contentStyle.Render(content)
 }
 
 // SupportedType returns the block type this drawer supports
