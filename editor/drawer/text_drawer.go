@@ -11,10 +11,12 @@ type TextDrawer struct{}
 // Draw renders a text block
 func (d *TextDrawer) Draw(b block.Block, ctx DrawContext) string {
 	content := b.Content()
+	spans := b.Spans()
+
 	if ctx.ShowCursor && ctx.IsFocused {
-		content = InsertCursor(content, ctx.CursorPos, CursorChar)
+		return RenderFormattedContentWithCursor(content, spans, styles.TextStyle, ctx.CursorPos)
 	}
-	return styles.TextStyle.Render(content)
+	return RenderFormattedContent(content, spans, styles.TextStyle)
 }
 
 // SupportedType returns the block type this drawer supports

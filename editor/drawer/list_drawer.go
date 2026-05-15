@@ -11,11 +11,15 @@ type ListDrawer struct{}
 // Draw renders a list item block with a bullet prefix
 func (d *ListDrawer) Draw(b block.Block, ctx DrawContext) string {
 	content := b.Content()
-	if ctx.ShowCursor && ctx.IsFocused {
-		content = InsertCursor(content, ctx.CursorPos, CursorChar)
-	}
+	spans := b.Spans()
 	prefix := styles.ListPrefixStyle.Render("• ")
-	styledContent := styles.ListContentStyle.Render(content)
+
+	var styledContent string
+	if ctx.ShowCursor && ctx.IsFocused {
+		styledContent = RenderFormattedContentWithCursor(content, spans, styles.ListContentStyle, ctx.CursorPos)
+	} else {
+		styledContent = RenderFormattedContent(content, spans, styles.ListContentStyle)
+	}
 
 	return prefix + styledContent
 }

@@ -1,6 +1,13 @@
 package drawer
 
-import "claudenelson/editor/block"
+import (
+	"strings"
+
+	"github.com/charmbracelet/lipgloss"
+
+	"claudenelson/editor/block"
+	"claudenelson/editor/format"
+)
 
 // CursorChar is the character used to display the cursor
 const CursorChar = "│"
@@ -74,4 +81,95 @@ func (r *DrawerRegistry) RegisterAll() {
 	r.Register(&HeadingDrawer{Level: 4})
 	r.Register(&ListDrawer{})
 	r.Register(&CheckboxDrawer{})
+}
+
+// RenderFormattedContent renders content with formatting spans applied
+// baseStyle is the default style for unformatted text
+func RenderFormattedContent(content string, spans format.Spans, baseStyle lipgloss.Style) string {
+	if len(spans) == 0 {
+		return baseStyle.Render(content)
+	}
+
+	runes := []rune(content)
+	if len(runes) == 0 {
+		return ""
+	}
+
+	var result strings.Builder
+
+	// Build a style map for each character position
+	styleMap := make([]format.Style, len(runes))
+	for _, span := range spans {
+		for i := span.Start; i < span.End && i < len(runes); i++ {
+			if i >= 0 {
+				if span.Style.Bold {
+					styleMap[i].Bold = true
+				}
+				if span.Style.Italic {
+					styleMap[i].Italic = true
+				}
+				if span.Style.Underline {
+					styleMap[i].Underline = true
+				}
+			}
+		}
+	}
+
+	// Group consecutive characters with the same style
+	i := 0
+	for i < len(runes) {
+		currentStyle := styleMap[i]
+		j := i + 1
+		for j < len(runes) && styleMap[j] == currentStyle {
+			j++
+		}
+
+		// Build the style for this segment
+		segmentStyle := baseStyle
+		if currentStyle.Bold {
+			segmentStyle = segmentStyle.Bold(true)
+		}
+		if currentStyle.Italic {
+			segmentStyle = segmentStyle.Italic(true)
+		}
+		if currentStyle.Underline {
+			segmentStyle = segmentStyle.Underline(true)
+		}
+
+		segment := string(runes[i:j])
+		result.WriteString(segmentStyle.Render(segment))
+
+		i = j
+	}
+
+	return result.String()
+}
+
+// RenderFormattedContentWithCursor renders content with formatting and cursor
+func RenderFormattedContentWithCursor(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int) string {
+	if cursorPos < 0 {
+		cursorPos = 0
+	}
+	runes := []rune(content)
+	if cursorPos > len(runes) {
+		cursorPos = len(runes)
+	}
+
+	// Insert cursor into content
+	contentWithCursor := InsertCursor(content, cursorPos, CursorChar)
+
+	// Adjust spans for the cursor insertion
+	adjustedSpans := make(format.Spans, len(spans))
+	for i, span := range spans {
+		adjustedSpan := span
+		if span.Start >= cursorPos {
+			adjustedSpan.Start++
+		}
+		if span.End > cursorPos {
+			adjustedSpan.End++
+		}
+		adjustedSpans[i] = adjustedSpan
+	}
+
+	return RenderFormattedContent(contentWithCursor, adjustedSpans, baseStyle)
 }

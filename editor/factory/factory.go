@@ -6,6 +6,7 @@ import (
 	"sync/atomic"
 
 	"claudenelson/editor/block"
+	"claudenelson/editor/format"
 )
 
 var idCounter uint64
@@ -106,4 +107,25 @@ func (f *BlockFactory) CreateListItem(content string) *block.ListItemBlock {
 // CreateCheckbox creates a new checkbox block
 func (f *BlockFactory) CreateCheckbox(content string, checked bool) *block.CheckboxBlock {
 	return block.NewCheckboxBlock(generateID(), content, checked)
+}
+
+// CreateTextWithSpans creates a new text block with formatting spans
+func (f *BlockFactory) CreateTextWithSpans(content string, spans format.Spans) *block.TextBlock {
+	b := block.NewTextBlock(generateID(), content)
+	b.SetSpans(spans)
+	return b
+}
+
+// CreateListItemWithSpans creates a new list item block with formatting spans
+func (f *BlockFactory) CreateListItemWithSpans(content string, spans format.Spans) *block.ListItemBlock {
+	b := block.NewListItemBlock(generateID(), content)
+	b.SetSpans(spans)
+	return b
+}
+
+// CreateCheckboxWithSpans creates a new checkbox block with formatting spans
+func (f *BlockFactory) CreateCheckboxWithSpans(content string, checked bool, spans format.Spans) *block.CheckboxBlock {
+	b := block.NewCheckboxBlock(generateID(), content, checked)
+	b.SetSpans(spans)
+	return b
 }

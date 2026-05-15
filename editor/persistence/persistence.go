@@ -7,15 +7,31 @@ import (
 	"claudenelson/editor/block"
 	"claudenelson/editor/document"
 	"claudenelson/editor/factory"
+	"claudenelson/editor/format"
 )
+
+// SerializedStyle represents text formatting in JSON format
+type SerializedStyle struct {
+	Bold      bool `json:"bold,omitempty"`
+	Italic    bool `json:"italic,omitempty"`
+	Underline bool `json:"underline,omitempty"`
+}
+
+// SerializedSpan represents a formatting span in JSON format
+type SerializedSpan struct {
+	Start int             `json:"start"`
+	End   int             `json:"end"`
+	Style SerializedStyle `json:"style"`
+}
 
 // SerializedBlock represents a block in JSON format
 type SerializedBlock struct {
-	ID      string `json:"id"`
-	Type    string `json:"type"`
-	Content string `json:"content"`
-	Checked *bool  `json:"checked,omitempty"` // CheckboxBlock
-	Level   *int   `json:"level,omitempty"`   // HeadingBlock
+	ID      string           `json:"id"`
+	Type    string           `json:"type"`
+	Content string           `json:"content"`
+	Spans   []SerializedSpan `json:"spans,omitempty"` // Formatting spans
+	Checked *bool            `json:"checked,omitempty"` // CheckboxBlock
+	Level   *int             `json:"level,omitempty"`   // HeadingBlock
 }
 
 // SerializedDocument represents a document in JSON format
@@ -25,12 +41,53 @@ type SerializedDocument struct {
 	CursorCol  int               `json:"cursorCol"`
 }
 
+// serializeSpans converts format.Spans to serialized form
+func serializeSpans(spans format.Spans) []SerializedSpan {
+	if len(spans) == 0 {
+		return nil
+	}
+	result := make([]SerializedSpan, len(spans))
+	for i, span := range spans {
+		result[i] = SerializedSpan{
+			Start: span.Start,
+			End:   span.End,
+			Style: SerializedStyle{
+				Bold:      span.Style.Bold,
+				Italic:    span.Style.Italic,
+				Underline: span.Style.Underline,
+			},
+		}
+	}
+	return result
+}
+
+// deserializeSpans converts serialized spans to format.Spans
+func deserializeSpans(serialized []SerializedSpan) format.Spans {
+	if len(serialized) == 0 {
+		return nil
+	}
+	result := make(format.Spans, len(serialized))
+	for i, ss := range serialized {
+		result[i] = format.Span{
+			Start: ss.Start,
+			End:   ss.End,
+			Style: format.Style{
+				Bold:      ss.Style.Bold,
+				Italic:    ss.Style.Italic,
+				Underline: ss.Style.Underline,
+			},
+		}
+	}
+	return result
+}
+
 // serializeBlock converts a block to its serialized form
 func serializeBlock(b block.Block) SerializedBlock {
 	sb := SerializedBlock{
 		ID:      b.ID(),
 		Type:    b.Type().String(),
 		Content: b.Content(),
+		Spans:   serializeSpans(b.Spans()),
 	}
 
 	// Handle specialized block fields
@@ -92,6 +149,7 @@ func Load(path string, f *factory.BlockFactory) (*document.Document, error) {
 
 	for _, sb := range sd.Blocks {
 		var b block.Block
+		spans := deserializeSpans(sb.Spans)
 
 		switch sb.Type {
 		case "h1":
@@ -111,11 +169,16 @@ func Load(path string, f *factory.BlockFactory) (*document.Document, error) {
 			if sb.Checked != nil {
 				checked = *sb.Checked
 			}
-			b = f.CreateCheckbox(sb.Content, checked)
+			b = f.CreateCheckboxWithSpans(sb.Content, checked, spans)
 		case "list_item":
-			b = f.CreateListItem(sb.Content)
+			b = f.CreateListItemWithSpans(sb.Content, spans)
 		default:
-			b = f.CreateText(sb.Content)
+			b = f.CreateTextWithSpans(sb.Content, spans)
+		}
+
+		// Set spans for heading blocks (they don't have WithSpans variant)
+		if spans != nil {
+			b.SetSpans(spans)
 		}
 
 		doc.AddBlock(b)

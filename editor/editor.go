@@ -11,6 +11,7 @@ import (
 	"claudenelson/editor/document"
 	"claudenelson/editor/drawer"
 	"claudenelson/editor/factory"
+	"claudenelson/editor/format"
 	"claudenelson/editor/persistence"
 	"claudenelson/editor/styles"
 )
@@ -44,6 +45,10 @@ type Model struct {
 	savePath  string    // Path to save document
 	dirty     bool      // Document has unsaved changes
 	saveTimer time.Time // Last modification time
+	// Formatting modes
+	boldMode      bool
+	italicMode    bool
+	underlineMode bool
 }
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
@@ -113,6 +118,15 @@ func (m *Model) markDirty() tea.Cmd {
 	return m.scheduleSave()
 }
 
+// currentStyle returns the current formatting style based on active modes
+func (m *Model) currentStyle() format.Style {
+	return format.Style{
+		Bold:      m.boldMode,
+		Italic:    m.italicMode,
+		Underline: m.underlineMode,
+	}
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
 	return tea.EnableMouseCellMotion
@@ -152,11 +166,20 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "right":
 			m.doc.MoveRight()
 
-		case "home", "ctrl+a", "alt+left":
+		case "home", "ctrl+a":
 			m.doc.MoveToLineStart()
 
-		case "end", "ctrl+e", "alt+right":
+		case "end", "ctrl+e":
 			m.doc.MoveToLineEnd()
+
+		case "ctrl+b":
+			m.boldMode = !m.boldMode
+
+		case "ctrl+i":
+			m.italicMode = !m.italicMode
+
+		case "ctrl+u":
+			m.underlineMode = !m.underlineMode
 
 		case "backspace":
 			if !m.doc.DeleteCharBackward() {
@@ -178,17 +201,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.markDirty()
 
 		case " ":
-			// Insert space character
-			m.doc.InsertChar(' ')
+			// Insert space character with formatting
+			m.doc.InsertCharWithFormat(' ', m.currentStyle())
 			// Check for block type triggers
 			m.checkBlockTriggers()
 			cmd = m.markDirty()
 
 		default:
-			// Handle regular character input
+			// Handle regular character input with formatting
 			if len(msg.Runes) > 0 {
+				style := m.currentStyle()
 				for _, r := range msg.Runes {
-					m.doc.InsertChar(r)
+					m.doc.InsertCharWithFormat(r, style)
 				}
 				cmd = m.markDirty()
 			}
@@ -222,18 +246,18 @@ func (m *Model) handleEnter() {
 		return
 	}
 
-	// Get text after cursor
-	rightPart := m.doc.SplitBlockAtCursor()
+	// Get text and spans after cursor
+	rightPart, rightSpans := m.doc.SplitBlockAtCursor()
 
-	// Determine new block type
+	// Determine new block type and create with spans
 	var newBlock block.Block
 	switch currentBlock.Type() {
 	case block.TypeListItem:
-		newBlock = m.factory.CreateListItem(rightPart)
+		newBlock = m.factory.CreateListItemWithSpans(rightPart, rightSpans)
 	case block.TypeCheckboxItem:
-		newBlock = m.factory.CreateCheckbox(rightPart, false)
+		newBlock = m.factory.CreateCheckboxWithSpans(rightPart, false, rightSpans)
 	default:
-		newBlock = m.factory.CreateText(rightPart)
+		newBlock = m.factory.CreateTextWithSpans(rightPart, rightSpans)
 	}
 
 	// Insert new block after current
@@ -434,9 +458,27 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
+	// Formatting indicators
+	b.WriteString("\n")
+	var formatIndicators []string
+	if m.boldMode {
+		formatIndicators = append(formatIndicators, styles.BoldIndicator.Render("B"))
+	}
+	if m.italicMode {
+		formatIndicators = append(formatIndicators, styles.ItalicIndicator.Render("I"))
+	}
+	if m.underlineMode {
+		formatIndicators = append(formatIndicators, styles.UnderlineIndicator.Render("U"))
+	}
+	if len(formatIndicators) > 0 {
+		b.WriteString("  ")
+		b.WriteString(strings.Join(formatIndicators, " "))
+		b.WriteString("\n")
+	}
+
 	// Help text
 	b.WriteString("\n")
-	help := styles.HelpStyle.Render("←/→: Cursor • ⌥←/⌥→: Line start/end • ↑/↓: Block • Enter: Split • Ctrl+C: Quit")
+	help := styles.HelpStyle.Render("←/→: Cursor • ↑/↓: Block • ^B: Bold • ^I: Italic • ^U: Underline • ^C: Quit")
 	b.WriteString(help)
 	b.WriteString("\n")
 

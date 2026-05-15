@@ -1,5 +1,7 @@
 package block
 
+import "claudenelson/editor/format"
+
 // BlockType represents the type of a block
 type BlockType int
 
@@ -41,6 +43,8 @@ type Block interface {
 	Type() BlockType
 	Content() string
 	SetContent(content string)
+	Spans() format.Spans
+	SetSpans(spans format.Spans)
 	Metadata() map[string]interface{}
 	SetMetadata(key string, value interface{})
 }
@@ -49,6 +53,7 @@ type Block interface {
 type BaseBlock struct {
 	id       string
 	content  string
+	spans    format.Spans
 	metadata map[string]interface{}
 }
 
@@ -57,6 +62,7 @@ func NewBaseBlock(id, content string) BaseBlock {
 	return BaseBlock{
 		id:       id,
 		content:  content,
+		spans:    make(format.Spans, 0),
 		metadata: make(map[string]interface{}),
 	}
 }
@@ -74,6 +80,16 @@ func (b *BaseBlock) Content() string {
 // SetContent sets the text content of the block
 func (b *BaseBlock) SetContent(content string) {
 	b.content = content
+}
+
+// Spans returns the formatting spans of the block
+func (b *BaseBlock) Spans() format.Spans {
+	return b.spans
+}
+
+// SetSpans sets the formatting spans of the block
+func (b *BaseBlock) SetSpans(spans format.Spans) {
+	b.spans = spans
 }
 
 // Metadata returns the metadata map of the block

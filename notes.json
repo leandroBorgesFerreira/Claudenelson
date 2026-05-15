@@ -28,7 +28,7 @@
       "content": "Headings (H1 through H4)"
     },
     {
-      "id": "block-32",
+      "id": "block-6",
       "type": "list_item",
       "content": "Checkbox/todo items"
     },
@@ -46,48 +46,64 @@
     {
       "id": "block-9",
       "type": "text",
-      "content": "das"
+      "content": "isso vai ser bem legal. TA em bold!! ",
+      "spans": [
+        {
+          "start": 36,
+          "end": 37,
+          "style": {
+            "bold": true
+          }
+        },
+        {
+          "start": 24,
+          "end": 36,
+          "style": {
+            "bold": true
+          }
+        }
+      ]
     },
     {
-      "id": "block-12",
+      "id": "block-10",
       "type": "text",
       "content": "a"
     },
     {
-      "id": "block-13",
+      "id": "block-11",
       "type": "text",
       "content": "sd"
     },
     {
-      "id": "block-14",
+      "id": "block-12",
       "type": "checkbox",
       "content": "Implement block rendering",
       "checked": true
     },
     {
-      "id": "block-15",
+      "id": "block-13",
       "type": "checkbox",
       "content": "Add navigation with arrow keys",
       "checked": true
     },
     {
-      "id": "block-16",
+      "id": "block-14",
       "type": "checkbox",
       "content": "Add editing capabilities",
       "checked": false
     },
     {
-      "id": "block-17",
+      "id": "block-15",
       "type": "h4",
       "content": "Navigation",
       "level": 4
     },
     {
-      "id": "block-18",
+      "id": "block-16",
       "type": "text",
       "content": "Use Up/Down arrows to move between blocks."
     }
   ],
-  "cursorLine": 5,
-  "cursorCol": 0
+  "cursorLine": 8,
+  "cursorCol": 36
 }

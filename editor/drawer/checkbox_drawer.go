@@ -14,25 +14,31 @@ func (d *CheckboxDrawer) Draw(b block.Block, ctx DrawContext) string {
 	if !ok {
 		// Fallback rendering if not a CheckboxBlock
 		content := b.Content()
+		spans := b.Spans()
 		if ctx.ShowCursor && ctx.IsFocused {
-			content = InsertCursor(content, ctx.CursorPos, CursorChar)
+			return RenderFormattedContentWithCursor(content, spans, styles.TextStyle, ctx.CursorPos)
 		}
-		return styles.TextStyle.Render(content)
+		return RenderFormattedContent(content, spans, styles.TextStyle)
 	}
 
 	content := cb.Content()
-	if ctx.ShowCursor && ctx.IsFocused {
-		content = InsertCursor(content, ctx.CursorPos, CursorChar)
-	}
+	spans := cb.Spans()
 
-	var prefix, styledContent string
+	var prefix string
+	var contentStyle = styles.CheckboxContentStyle
 
 	if cb.IsChecked() {
 		prefix = styles.CheckboxCheckedStyle.Render("[x] ")
-		styledContent = styles.CheckboxCheckedContentStyle.Render(content)
+		contentStyle = styles.CheckboxCheckedContentStyle
 	} else {
 		prefix = styles.CheckboxUncheckedStyle.Render("[ ] ")
-		styledContent = styles.CheckboxContentStyle.Render(content)
+	}
+
+	var styledContent string
+	if ctx.ShowCursor && ctx.IsFocused {
+		styledContent = RenderFormattedContentWithCursor(content, spans, contentStyle, ctx.CursorPos)
+	} else {
+		styledContent = RenderFormattedContent(content, spans, contentStyle)
 	}
 
 	return prefix + styledContent

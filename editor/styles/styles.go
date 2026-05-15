@@ -63,4 +63,23 @@ var (
 	TitleStyle = lipgloss.NewStyle().
 			Bold(true).
 			Foreground(lipgloss.Color("99"))
+
+	// Formatting indicators
+	BoldIndicator = lipgloss.NewStyle().
+			Bold(true).
+			Foreground(lipgloss.Color("33")).
+			Background(lipgloss.Color("236")).
+			Padding(0, 1)
+
+	ItalicIndicator = lipgloss.NewStyle().
+			Italic(true).
+			Foreground(lipgloss.Color("33")).
+			Background(lipgloss.Color("236")).
+			Padding(0, 1)
+
+	UnderlineIndicator = lipgloss.NewStyle().
+				Underline(true).
+				Foreground(lipgloss.Color("33")).
+				Background(lipgloss.Color("236")).
+				Padding(0, 1)
 )

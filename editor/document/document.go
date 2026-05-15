@@ -1,6 +1,9 @@
 package document
 
-import "claudenelson/editor/block"
+import (
+	"claudenelson/editor/block"
+	"claudenelson/editor/format"
+)
 
 // Document represents a collection of blocks with cursor state
 type Document struct {
@@ -105,8 +108,13 @@ func (d *Document) MoveToLineEnd() {
 	d.CursorCol = len([]rune(b.Content()))
 }
 
-// InsertChar inserts a character at the cursor position
+// InsertChar inserts a character at the cursor position without formatting
 func (d *Document) InsertChar(ch rune) {
+	d.InsertCharWithFormat(ch, format.Style{})
+}
+
+// InsertCharWithFormat inserts a character at the cursor position with formatting
+func (d *Document) InsertCharWithFormat(ch rune, style format.Style) {
 	b := d.CurrentBlock()
 	if b == nil {
 		return
@@ -120,6 +128,11 @@ func (d *Document) InsertChar(ch rune) {
 	newContent = append(newContent, ch)
 	newContent = append(newContent, content[d.CursorCol:]...)
 	b.SetContent(string(newContent))
+
+	// Update spans
+	spans := b.Spans().InsertAt(d.CursorCol, style)
+	b.SetSpans(spans)
+
 	d.CursorCol++
 }
 
@@ -140,6 +153,11 @@ func (d *Document) DeleteCharBackward() bool {
 	newContent = append(newContent, content[:d.CursorCol-1]...)
 	newContent = append(newContent, content[d.CursorCol:]...)
 	b.SetContent(string(newContent))
+
+	// Update spans
+	spans := b.Spans().DeleteAt(d.CursorCol - 1)
+	b.SetSpans(spans)
+
 	d.CursorCol--
 	return true
 }
@@ -158,15 +176,20 @@ func (d *Document) DeleteCharForward() bool {
 	newContent = append(newContent, content[:d.CursorCol]...)
 	newContent = append(newContent, content[d.CursorCol+1:]...)
 	b.SetContent(string(newContent))
+
+	// Update spans
+	spans := b.Spans().DeleteAt(d.CursorCol)
+	b.SetSpans(spans)
+
 	return true
 }
 
 // SplitBlockAtCursor splits the current block at the cursor position
-// Returns the text after the cursor (which should go to the new block)
-func (d *Document) SplitBlockAtCursor() string {
+// Returns the text after the cursor and its spans (which should go to the new block)
+func (d *Document) SplitBlockAtCursor() (string, format.Spans) {
 	b := d.CurrentBlock()
 	if b == nil {
-		return ""
+		return "", nil
 	}
 	content := []rune(b.Content())
 	if d.CursorCol > len(content) {
@@ -174,8 +197,13 @@ func (d *Document) SplitBlockAtCursor() string {
 	}
 	left := string(content[:d.CursorCol])
 	right := string(content[d.CursorCol:])
+
+	// Split spans
+	leftSpans, rightSpans := b.Spans().SplitAt(d.CursorCol)
 	b.SetContent(left)
-	return right
+	b.SetSpans(leftSpans)
+
+	return right, rightSpans
 }
 
 // clampCursorCol ensures CursorCol is within valid bounds for current block
