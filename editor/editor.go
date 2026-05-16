@@ -49,6 +49,9 @@ type Model struct {
 	boldMode      bool
 	italicMode    bool
 	underlineMode bool
+	// Highlight selection mode
+	highlightMode   bool // When true, arrow keys select text for highlighting
+	selectionStart  int  // Starting position of selection
 }
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
@@ -127,6 +130,35 @@ func (m *Model) currentStyle() format.Style {
 	}
 }
 
+// applyHighlightAndExit applies or removes highlight from the selected range and exits highlight mode
+func (m *Model) applyHighlightAndExit() tea.Cmd {
+	if !m.highlightMode {
+		return nil
+	}
+
+	currentBlock := m.doc.CurrentBlock()
+	if currentBlock != nil {
+		start, end := m.selectionStart, m.doc.CursorCol
+		if start > end {
+			start, end = end, start
+		}
+		if start != end {
+			// Toggle highlight span on current block
+			spans := currentBlock.Spans()
+			newSpans := spans.ToggleHighlight(start, end)
+			currentBlock.SetSpans(newSpans)
+		}
+	}
+
+	m.highlightMode = false
+	return m.markDirty()
+}
+
+// exitHighlightMode exits highlight mode without applying
+func (m *Model) exitHighlightMode() {
+	m.highlightMode = false
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
 	return tea.EnableMouseCellMotion
@@ -155,22 +187,50 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 
 		case "up":
+			if m.highlightMode {
+				// In highlight mode, up/down exits without applying
+				m.highlightMode = false
+			}
 			m.doc.MoveUp()
 
 		case "down":
+			if m.highlightMode {
+				// In highlight mode, up/down exits without applying
+				m.highlightMode = false
+			}
 			m.doc.MoveDown()
 
 		case "left":
-			m.doc.MoveLeft()
+			if m.highlightMode {
+				// Extend selection left
+				m.doc.MoveLeft()
+			} else {
+				m.doc.MoveLeft()
+			}
 
 		case "right":
-			m.doc.MoveRight()
+			if m.highlightMode {
+				// Extend selection right
+				m.doc.MoveRight()
+			} else {
+				m.doc.MoveRight()
+			}
 
 		case "home", "ctrl+a":
-			m.doc.MoveToLineStart()
+			if m.highlightMode {
+				// Extend selection to start of line
+				m.doc.MoveToLineStart()
+			} else {
+				m.doc.MoveToLineStart()
+			}
 
 		case "end", "ctrl+e":
-			m.doc.MoveToLineEnd()
+			if m.highlightMode {
+				// Extend selection to end of line
+				m.doc.MoveToLineEnd()
+			} else {
+				m.doc.MoveToLineEnd()
+			}
 
 		case "ctrl+b":
 			m.boldMode = !m.boldMode
@@ -181,40 +241,71 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+u":
 			m.underlineMode = !m.underlineMode
 
+		case "ctrl+h":
+			// Enter highlight mode - start selection at current cursor
+			m.highlightMode = true
+			m.selectionStart = m.doc.CursorCol
+
 		case "backspace":
-			if !m.doc.DeleteCharBackward() {
-				// At start of line - try to convert special blocks to text first
-				if !m.convertToTextBlock() {
-					m.mergeWithPreviousBlock()
+			if m.highlightMode {
+				cmd = m.applyHighlightAndExit()
+			} else {
+				if !m.doc.DeleteCharBackward() {
+					// At start of line - try to convert special blocks to text first
+					if !m.convertToTextBlock() {
+						m.mergeWithPreviousBlock()
+					}
 				}
+				cmd = m.markDirty()
 			}
-			cmd = m.markDirty()
 
 		case "delete":
-			if !m.doc.DeleteCharForward() {
-				m.mergeWithNextBlock()
+			if m.highlightMode {
+				cmd = m.applyHighlightAndExit()
+			} else {
+				if !m.doc.DeleteCharForward() {
+					m.mergeWithNextBlock()
+				}
+				cmd = m.markDirty()
 			}
-			cmd = m.markDirty()
 
 		case "enter":
-			m.handleEnter()
-			cmd = m.markDirty()
+			if m.highlightMode {
+				cmd = m.applyHighlightAndExit()
+			} else {
+				m.handleEnter()
+				cmd = m.markDirty()
+			}
 
 		case " ":
-			// Insert space character with formatting
-			m.doc.InsertCharWithFormat(' ', m.currentStyle())
-			// Check for block type triggers
-			m.checkBlockTriggers()
-			cmd = m.markDirty()
+			if m.highlightMode {
+				cmd = m.applyHighlightAndExit()
+			} else {
+				// Insert space character with formatting
+				m.doc.InsertCharWithFormat(' ', m.currentStyle())
+				// Check for block type triggers
+				m.checkBlockTriggers()
+				cmd = m.markDirty()
+			}
+
+		case "esc":
+			// Escape key exits highlight mode without applying
+			if m.highlightMode {
+				m.exitHighlightMode()
+			}
 
 		default:
 			// Handle regular character input with formatting
 			if len(msg.Runes) > 0 {
-				style := m.currentStyle()
-				for _, r := range msg.Runes {
-					m.doc.InsertCharWithFormat(r, style)
+				if m.highlightMode {
+					cmd = m.applyHighlightAndExit()
+				} else {
+					style := m.currentStyle()
+					for _, r := range msg.Runes {
+						m.doc.InsertCharWithFormat(r, style)
+					}
+					cmd = m.markDirty()
 				}
-				cmd = m.markDirty()
 			}
 		}
 
@@ -439,12 +530,21 @@ func (m Model) View() string {
 		blk := m.doc.BlockAt(i)
 		isFocused := i == m.doc.CursorLine
 
+		// Calculate selection range for this block
+		selStart, selEnd := -1, -1
+		if m.highlightMode && isFocused {
+			selStart = m.selectionStart
+			selEnd = m.doc.CursorCol
+		}
+
 		ctx := drawer.DrawContext{
-			Width:      m.width,
-			IsFocused:  isFocused,
-			CursorPos:  m.doc.CursorCol,
-			LineNumber: i,
-			ShowCursor: true,
+			Width:          m.width,
+			IsFocused:      isFocused,
+			CursorPos:      m.doc.CursorCol,
+			LineNumber:     i,
+			ShowCursor:     true,
+			SelectionStart: selStart,
+			SelectionEnd:   selEnd,
 		}
 
 		// Consistent indentation for all blocks
@@ -470,6 +570,9 @@ func (m Model) View() string {
 	if m.underlineMode {
 		formatIndicators = append(formatIndicators, styles.UnderlineIndicator.Render("U"))
 	}
+	if m.highlightMode {
+		formatIndicators = append(formatIndicators, styles.HighlightIndicator.Render("H"))
+	}
 	if len(formatIndicators) > 0 {
 		b.WriteString("  ")
 		b.WriteString(strings.Join(formatIndicators, " "))
@@ -478,7 +581,13 @@ func (m Model) View() string {
 
 	// Help text
 	b.WriteString("\n")
-	help := styles.HelpStyle.Render("←/→: Cursor • ↑/↓: Block • ^B: Bold • ^I: Italic • ^U: Underline • ^C: Quit")
+	var helpText string
+	if m.highlightMode {
+		helpText = "HIGHLIGHT MODE: ←/→: Select • Enter/Space: Apply • Esc: Cancel"
+	} else {
+		helpText = "←/→: Cursor • ↑/↓: Block • ^B: Bold • ^I: Italic • ^U: Underline • ^H: Highlight • ^C: Quit"
+	}
+	help := styles.HelpStyle.Render(helpText)
 	b.WriteString(help)
 	b.WriteString("\n")
 

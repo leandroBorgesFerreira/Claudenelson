@@ -82,4 +82,19 @@ var (
 				Foreground(lipgloss.Color("33")).
 				Background(lipgloss.Color("236")).
 				Padding(0, 1)
+
+	// Highlight style (yellow background)
+	HighlightStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("226")).
+			Foreground(lipgloss.Color("0"))
+
+	HighlightIndicator = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("0")).
+				Background(lipgloss.Color("226")).
+				Padding(0, 1)
+
+	// Selection style (for highlight mode)
+	SelectionStyle = lipgloss.NewStyle().
+			Background(lipgloss.Color("39")).
+			Foreground(lipgloss.Color("0"))
 )

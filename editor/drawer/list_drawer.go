@@ -16,9 +16,9 @@ func (d *ListDrawer) Draw(b block.Block, ctx DrawContext) string {
 
 	var styledContent string
 	if ctx.ShowCursor && ctx.IsFocused {
-		styledContent = RenderFormattedContentWithCursor(content, spans, styles.ListContentStyle, ctx.CursorPos)
+		styledContent = RenderFormattedContentWithCursorAndSelection(content, spans, styles.ListContentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd)
 	} else {
-		styledContent = RenderFormattedContent(content, spans, styles.ListContentStyle)
+		styledContent = RenderFormattedContentWithSelection(content, spans, styles.ListContentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
 
 	return prefix + styledContent

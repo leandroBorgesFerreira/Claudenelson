@@ -16,9 +16,9 @@ func (d *CheckboxDrawer) Draw(b block.Block, ctx DrawContext) string {
 		content := b.Content()
 		spans := b.Spans()
 		if ctx.ShowCursor && ctx.IsFocused {
-			return RenderFormattedContentWithCursor(content, spans, styles.TextStyle, ctx.CursorPos)
+			return RenderFormattedContentWithCursorAndSelection(content, spans, styles.TextStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd)
 		}
-		return RenderFormattedContent(content, spans, styles.TextStyle)
+		return RenderFormattedContentWithSelection(content, spans, styles.TextStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
 
 	content := cb.Content()
@@ -36,9 +36,9 @@ func (d *CheckboxDrawer) Draw(b block.Block, ctx DrawContext) string {
 
 	var styledContent string
 	if ctx.ShowCursor && ctx.IsFocused {
-		styledContent = RenderFormattedContentWithCursor(content, spans, contentStyle, ctx.CursorPos)
+		styledContent = RenderFormattedContentWithCursorAndSelection(content, spans, contentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd)
 	} else {
-		styledContent = RenderFormattedContent(content, spans, contentStyle)
+		styledContent = RenderFormattedContentWithSelection(content, spans, contentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
 
 	return prefix + styledContent

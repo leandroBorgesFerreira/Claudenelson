@@ -14,11 +14,13 @@ const CursorChar = "│"
 
 // DrawContext contains context information for drawing a block
 type DrawContext struct {
-	Width      int
-	IsFocused  bool
-	CursorPos  int
-	LineNumber int
-	ShowCursor bool
+	Width        int
+	IsFocused    bool
+	CursorPos    int
+	LineNumber   int
+	ShowCursor   bool
+	SelectionStart int // -1 if no selection
+	SelectionEnd   int // -1 if no selection
 }
 
 // InsertCursor inserts a cursor character at the specified position in content
@@ -86,12 +88,16 @@ func (r *DrawerRegistry) RegisterAll() {
 // RenderFormattedContent renders content with formatting spans applied
 // baseStyle is the default style for unformatted text
 func RenderFormattedContent(content string, spans format.Spans, baseStyle lipgloss.Style) string {
-	if len(spans) == 0 {
-		return baseStyle.Render(content)
-	}
+	return RenderFormattedContentWithSelection(content, spans, baseStyle, -1, -1)
+}
 
+// RenderFormattedContentWithSelection renders content with formatting and optional selection highlight
+func RenderFormattedContentWithSelection(content string, spans format.Spans, baseStyle lipgloss.Style, selStart, selEnd int) string {
 	runes := []rune(content)
 	if len(runes) == 0 {
+		if len(spans) == 0 {
+			return baseStyle.Render(content)
+		}
 		return ""
 	}
 
@@ -99,6 +105,8 @@ func RenderFormattedContent(content string, spans format.Spans, baseStyle lipglo
 
 	// Build a style map for each character position
 	styleMap := make([]format.Style, len(runes))
+	selectionMap := make([]bool, len(runes))
+
 	for _, span := range spans {
 		for i := span.Start; i < span.End && i < len(runes); i++ {
 			if i >= 0 {
@@ -111,16 +119,33 @@ func RenderFormattedContent(content string, spans format.Spans, baseStyle lipglo
 				if span.Style.Underline {
 					styleMap[i].Underline = true
 				}
+				if span.Style.Highlight {
+					styleMap[i].Highlight = true
+				}
 			}
 		}
 	}
 
-	// Group consecutive characters with the same style
+	// Mark selection range
+	if selStart >= 0 && selEnd >= 0 && selStart != selEnd {
+		start, end := selStart, selEnd
+		if start > end {
+			start, end = end, start
+		}
+		for i := start; i < end && i < len(runes); i++ {
+			if i >= 0 {
+				selectionMap[i] = true
+			}
+		}
+	}
+
+	// Group consecutive characters with the same style and selection state
 	i := 0
 	for i < len(runes) {
 		currentStyle := styleMap[i]
+		currentSelection := selectionMap[i]
 		j := i + 1
-		for j < len(runes) && styleMap[j] == currentStyle {
+		for j < len(runes) && styleMap[j] == currentStyle && selectionMap[j] == currentSelection {
 			j++
 		}
 
@@ -135,6 +160,14 @@ func RenderFormattedContent(content string, spans format.Spans, baseStyle lipglo
 		if currentStyle.Underline {
 			segmentStyle = segmentStyle.Underline(true)
 		}
+		if currentStyle.Highlight {
+			// Yellow highlight background
+			segmentStyle = segmentStyle.Background(lipgloss.Color("226")).Foreground(lipgloss.Color("0"))
+		}
+		if currentSelection {
+			// Selection highlight (blue background)
+			segmentStyle = segmentStyle.Background(lipgloss.Color("39")).Foreground(lipgloss.Color("0"))
+		}
 
 		segment := string(runes[i:j])
 		result.WriteString(segmentStyle.Render(segment))
@@ -147,6 +180,11 @@ func RenderFormattedContent(content string, spans format.Spans, baseStyle lipglo
 
 // RenderFormattedContentWithCursor renders content with formatting and cursor
 func RenderFormattedContentWithCursor(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int) string {
+	return RenderFormattedContentWithCursorAndSelection(content, spans, baseStyle, cursorPos, -1, -1)
+}
+
+// RenderFormattedContentWithCursorAndSelection renders content with formatting, cursor, and selection
+func RenderFormattedContentWithCursorAndSelection(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int, selStart, selEnd int) string {
 	if cursorPos < 0 {
 		cursorPos = 0
 	}
@@ -171,5 +209,18 @@ func RenderFormattedContentWithCursor(content string, spans format.Spans, baseSt
 		adjustedSpans[i] = adjustedSpan
 	}
 
-	return RenderFormattedContent(contentWithCursor, adjustedSpans, baseStyle)
+	// Adjust selection for cursor insertion
+	adjSelStart, adjSelEnd := selStart, selEnd
+	if selStart >= 0 {
+		if selStart >= cursorPos {
+			adjSelStart++
+		}
+	}
+	if selEnd >= 0 {
+		if selEnd > cursorPos {
+			adjSelEnd++
+		}
+	}
+
+	return RenderFormattedContentWithSelection(contentWithCursor, adjustedSpans, baseStyle, adjSelStart, adjSelEnd)
 }

@@ -22,14 +22,11 @@ func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
 	}
 
 	content := b.Content()
+	spans := b.Spans()
 
 	// H1 is rendered in uppercase for emphasis
 	if level == 1 {
 		content = strings.ToUpper(content)
-	}
-
-	if ctx.ShowCursor && ctx.IsFocused {
-		content = InsertCursor(content, ctx.CursorPos, CursorChar)
 	}
 
 	var contentStyle = styles.H1Style
@@ -42,7 +39,10 @@ func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
 		contentStyle = styles.H4Style
 	}
 
-	return contentStyle.Render(content)
+	if ctx.ShowCursor && ctx.IsFocused {
+		return RenderFormattedContentWithCursorAndSelection(content, spans, contentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd)
+	}
+	return RenderFormattedContentWithSelection(content, spans, contentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 }
 
 // SupportedType returns the block type this drawer supports

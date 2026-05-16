@@ -5,11 +5,12 @@ type Style struct {
 	Bold      bool
 	Italic    bool
 	Underline bool
+	Highlight bool
 }
 
 // IsPlain returns true if no formatting is applied
 func (s Style) IsPlain() bool {
-	return !s.Bold && !s.Italic && !s.Underline
+	return !s.Bold && !s.Italic && !s.Underline && !s.Highlight
 }
 
 // Span represents a range of text with formatting
@@ -146,9 +147,106 @@ func (spans Spans) StyleAt(pos int) Style {
 			if span.Style.Underline {
 				style.Underline = true
 			}
+			if span.Style.Highlight {
+				style.Highlight = true
+			}
 		}
 	}
 	return style
+}
+
+// isRangeHighlighted checks if the entire range [start, end) is highlighted
+func (spans Spans) isRangeHighlighted(start, end int) bool {
+	if start >= end {
+		return false
+	}
+	// Check each position in the range
+	for pos := start; pos < end; pos++ {
+		highlighted := false
+		for _, span := range spans {
+			if span.Style.Highlight && span.Start <= pos && pos < span.End {
+				highlighted = true
+				break
+			}
+		}
+		if !highlighted {
+			return false
+		}
+	}
+	return true
+}
+
+// ToggleHighlight toggles highlight formatting for a range of text
+// If the entire range is highlighted, removes the highlight; otherwise adds it
+func (spans Spans) ToggleHighlight(start, end int) Spans {
+	if start >= end {
+		return spans
+	}
+
+	if spans.isRangeHighlighted(start, end) {
+		// Remove highlight from this range
+		return spans.RemoveHighlight(start, end)
+	}
+
+	// Add highlight to this range
+	result := append(spans, Span{
+		Start: start,
+		End:   end,
+		Style: Style{Highlight: true},
+	})
+	return result.Normalize()
+}
+
+// RemoveHighlight removes highlight formatting from a range of text
+func (spans Spans) RemoveHighlight(start, end int) Spans {
+	if start >= end {
+		return spans
+	}
+
+	var result Spans
+	for _, span := range spans {
+		if !span.Style.Highlight {
+			// Keep non-highlight spans as-is
+			result = append(result, span)
+			continue
+		}
+
+		// Handle highlight spans - may need to split or remove
+		if span.End <= start || span.Start >= end {
+			// Span is completely outside the range - keep it
+			result = append(result, span)
+		} else if span.Start >= start && span.End <= end {
+			// Span is completely inside the range - remove it (don't add)
+		} else if span.Start < start && span.End > end {
+			// Range is inside the span - split into two parts
+			result = append(result, Span{
+				Start: span.Start,
+				End:   start,
+				Style: span.Style,
+			})
+			result = append(result, Span{
+				Start: end,
+				End:   span.End,
+				Style: span.Style,
+			})
+		} else if span.Start < start {
+			// Span overlaps on the left - keep left part
+			result = append(result, Span{
+				Start: span.Start,
+				End:   start,
+				Style: span.Style,
+			})
+		} else if span.End > end {
+			// Span overlaps on the right - keep right part
+			result = append(result, Span{
+				Start: end,
+				End:   span.End,
+				Style: span.Style,
+			})
+		}
+	}
+
+	return result.Normalize()
 }
 
 // SplitAt splits spans at position and returns spans for left and right parts
