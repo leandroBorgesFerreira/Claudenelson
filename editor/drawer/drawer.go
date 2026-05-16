@@ -9,34 +9,15 @@ import (
 	"claudenelson/editor/format"
 )
 
-// CursorChar is the character used to display the cursor
-const CursorChar = "│"
-
 // DrawContext contains context information for drawing a block
 type DrawContext struct {
-	Width        int
-	IsFocused    bool
-	CursorPos    int
-	LineNumber   int
-	ShowCursor   bool
+	Width          int
+	IsFocused      bool
+	CursorPos      int
+	LineNumber     int
+	ShowCursor     bool
 	SelectionStart int // -1 if no selection
 	SelectionEnd   int // -1 if no selection
-}
-
-// InsertCursor inserts a cursor character at the specified position in content
-func InsertCursor(content string, pos int, cursorChar string) string {
-	runes := []rune(content)
-	if pos < 0 {
-		pos = 0
-	}
-	if pos > len(runes) {
-		pos = len(runes)
-	}
-	result := make([]rune, 0, len(runes)+len([]rune(cursorChar)))
-	result = append(result, runes[:pos]...)
-	result = append(result, []rune(cursorChar)...)
-	result = append(result, runes[pos:]...)
-	return string(result)
 }
 
 // Drawer is the interface for rendering blocks
@@ -178,12 +159,17 @@ func RenderFormattedContentWithSelection(content string, spans format.Spans, bas
 	return result.String()
 }
 
-// RenderFormattedContentWithCursor renders content with formatting and cursor
+// RenderFormattedContentWithCursor renders content with formatting and block cursor
 func RenderFormattedContentWithCursor(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int) string {
 	return RenderFormattedContentWithCursorAndSelection(content, spans, baseStyle, cursorPos, -1, -1)
 }
 
-// RenderFormattedContentWithCursorAndSelection renders content with formatting, cursor, and selection
+// RenderContentWithBlockCursor renders plain content with a block cursor (no spans)
+func RenderContentWithBlockCursor(content string, baseStyle lipgloss.Style, cursorPos int) string {
+	return RenderFormattedContentWithCursorAndSelection(content, nil, baseStyle, cursorPos, -1, -1)
+}
+
+// RenderFormattedContentWithCursorAndSelection renders content with formatting, block cursor, and selection
 func RenderFormattedContentWithCursorAndSelection(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int, selStart, selEnd int) string {
 	if cursorPos < 0 {
 		cursorPos = 0
@@ -193,34 +179,86 @@ func RenderFormattedContentWithCursorAndSelection(content string, spans format.S
 		cursorPos = len(runes)
 	}
 
-	// Insert cursor into content
-	contentWithCursor := InsertCursor(content, cursorPos, CursorChar)
-
-	// Adjust spans for the cursor insertion
-	adjustedSpans := make(format.Spans, len(spans))
-	for i, span := range spans {
-		adjustedSpan := span
-		if span.Start >= cursorPos {
-			adjustedSpan.Start++
-		}
-		if span.End > cursorPos {
-			adjustedSpan.End++
-		}
-		adjustedSpans[i] = adjustedSpan
+	// If cursor is at end of content, append a space for the block cursor
+	atEnd := cursorPos >= len(runes)
+	if atEnd {
+		runes = append(runes, ' ')
 	}
 
-	// Adjust selection for cursor insertion
-	adjSelStart, adjSelEnd := selStart, selEnd
-	if selStart >= 0 {
-		if selStart >= cursorPos {
-			adjSelStart++
-		}
+	if len(runes) == 0 {
+		// Empty content with cursor - show block cursor on space
+		cursorStyle := lipgloss.NewStyle().Reverse(true)
+		return cursorStyle.Render(" ")
 	}
-	if selEnd >= 0 {
-		if selEnd > cursorPos {
-			adjSelEnd++
+
+	var result strings.Builder
+
+	// Build a style map for each character position
+	styleMap := make([]format.Style, len(runes))
+	selectionMap := make([]bool, len(runes))
+
+	for _, span := range spans {
+		for i := span.Start; i < span.End && i < len(runes); i++ {
+			if i >= 0 {
+				if span.Style.Bold {
+					styleMap[i].Bold = true
+				}
+				if span.Style.Italic {
+					styleMap[i].Italic = true
+				}
+				if span.Style.Underline {
+					styleMap[i].Underline = true
+				}
+				if span.Style.Highlight {
+					styleMap[i].Highlight = true
+				}
+			}
 		}
 	}
 
-	return RenderFormattedContentWithSelection(contentWithCursor, adjustedSpans, baseStyle, adjSelStart, adjSelEnd)
+	// Mark selection range
+	if selStart >= 0 && selEnd >= 0 && selStart != selEnd {
+		start, end := selStart, selEnd
+		if start > end {
+			start, end = end, start
+		}
+		for i := start; i < end && i < len(runes); i++ {
+			if i >= 0 {
+				selectionMap[i] = true
+			}
+		}
+	}
+
+	// Render each character, applying block cursor at cursorPos
+	for i, r := range runes {
+		currentStyle := styleMap[i]
+		isSelected := selectionMap[i]
+		isCursor := i == cursorPos
+
+		// Build the style for this character
+		charStyle := baseStyle
+		if currentStyle.Bold {
+			charStyle = charStyle.Bold(true)
+		}
+		if currentStyle.Italic {
+			charStyle = charStyle.Italic(true)
+		}
+		if currentStyle.Underline {
+			charStyle = charStyle.Underline(true)
+		}
+		if currentStyle.Highlight {
+			charStyle = charStyle.Background(lipgloss.Color("226")).Foreground(lipgloss.Color("0"))
+		}
+		if isSelected {
+			charStyle = charStyle.Background(lipgloss.Color("39")).Foreground(lipgloss.Color("0"))
+		}
+		if isCursor {
+			// Block cursor - invert colors
+			charStyle = charStyle.Reverse(true)
+		}
+
+		result.WriteString(charStyle.Render(string(r)))
+	}
+
+	return result.String()
 }
