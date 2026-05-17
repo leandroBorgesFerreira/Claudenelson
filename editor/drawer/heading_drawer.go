@@ -40,7 +40,10 @@ func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
 	}
 
 	if ctx.ShowCursor && ctx.IsFocused {
-		return RenderFormattedContentWithCursorAndSelection(content, spans, contentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd)
+		return RenderFormattedContentFull(content, spans, contentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
+	}
+	if ctx.LineSelected {
+		return RenderFormattedContentLineSelected(content, spans, contentStyle)
 	}
 	return RenderFormattedContentWithSelection(content, spans, contentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 }

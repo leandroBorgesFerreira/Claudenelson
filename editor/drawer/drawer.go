@@ -16,8 +16,9 @@ type DrawContext struct {
 	CursorPos      int
 	LineNumber     int
 	ShowCursor     bool
-	SelectionStart int // -1 if no selection
-	SelectionEnd   int // -1 if no selection
+	SelectionStart int  // -1 if no selection (within line)
+	SelectionEnd   int  // -1 if no selection (within line)
+	LineSelected   bool // True if entire line is selected (multi-line selection)
 }
 
 // Drawer is the interface for rendering blocks
@@ -74,8 +75,24 @@ func RenderFormattedContent(content string, spans format.Spans, baseStyle lipglo
 
 // RenderFormattedContentWithSelection renders content with formatting and optional selection highlight
 func RenderFormattedContentWithSelection(content string, spans format.Spans, baseStyle lipgloss.Style, selStart, selEnd int) string {
+	return renderFormattedContentInternal(content, spans, baseStyle, -1, selStart, selEnd, false)
+}
+
+// RenderFormattedContentLineSelected renders content with entire line selected
+func RenderFormattedContentLineSelected(content string, spans format.Spans, baseStyle lipgloss.Style) string {
+	return renderFormattedContentInternal(content, spans, baseStyle, -1, -1, -1, true)
+}
+
+// renderFormattedContentInternal is the internal renderer with all options
+func renderFormattedContentInternal(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int, selStart, selEnd int, lineSelected bool) string {
 	runes := []rune(content)
+
+	// Handle empty content
 	if len(runes) == 0 {
+		if lineSelected {
+			// Show at least one space for empty selected lines
+			return lipgloss.NewStyle().Background(lipgloss.Color("62")).Render(" ")
+		}
 		if len(spans) == 0 {
 			return baseStyle.Render(content)
 		}
@@ -107,7 +124,7 @@ func RenderFormattedContentWithSelection(content string, spans format.Spans, bas
 		}
 	}
 
-	// Mark selection range
+	// Mark selection range (within line)
 	if selStart >= 0 && selEnd >= 0 && selStart != selEnd {
 		start, end := selStart, selEnd
 		if start > end {
@@ -149,6 +166,10 @@ func RenderFormattedContentWithSelection(content string, spans format.Spans, bas
 			// Selection highlight (blue background)
 			segmentStyle = segmentStyle.Background(lipgloss.Color("39")).Foreground(lipgloss.Color("0"))
 		}
+		if lineSelected {
+			// Line selection (purple background)
+			segmentStyle = segmentStyle.Background(lipgloss.Color("62")).Foreground(lipgloss.Color("255"))
+		}
 
 		segment := string(runes[i:j])
 		result.WriteString(segmentStyle.Render(segment))
@@ -171,6 +192,11 @@ func RenderContentWithBlockCursor(content string, baseStyle lipgloss.Style, curs
 
 // RenderFormattedContentWithCursorAndSelection renders content with formatting, block cursor, and selection
 func RenderFormattedContentWithCursorAndSelection(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int, selStart, selEnd int) string {
+	return RenderFormattedContentFull(content, spans, baseStyle, cursorPos, selStart, selEnd, false)
+}
+
+// RenderFormattedContentFull renders content with all options including line selection
+func RenderFormattedContentFull(content string, spans format.Spans, baseStyle lipgloss.Style, cursorPos int, selStart, selEnd int, lineSelected bool) string {
 	if cursorPos < 0 {
 		cursorPos = 0
 	}
@@ -188,6 +214,9 @@ func RenderFormattedContentWithCursorAndSelection(content string, spans format.S
 	if len(runes) == 0 {
 		// Empty content with cursor - show block cursor on space
 		cursorStyle := lipgloss.NewStyle().Reverse(true)
+		if lineSelected {
+			cursorStyle = cursorStyle.Background(lipgloss.Color("62"))
+		}
 		return cursorStyle.Render(" ")
 	}
 
@@ -251,6 +280,10 @@ func RenderFormattedContentWithCursorAndSelection(content string, spans format.S
 		}
 		if isSelected {
 			charStyle = charStyle.Background(lipgloss.Color("39")).Foreground(lipgloss.Color("0"))
+		}
+		if lineSelected && !isCursor {
+			// Line selection (purple background)
+			charStyle = charStyle.Background(lipgloss.Color("62")).Foreground(lipgloss.Color("255"))
 		}
 		if isCursor {
 			// Block cursor - invert colors

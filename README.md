@@ -64,6 +64,17 @@ claudenelson write
 | `Ctrl+U` | Toggle underline mode |
 | `Ctrl+H` | Enter highlight selection mode |
 
+### Multi-Line Selection
+| Key | Action |
+|-----|--------|
+| `Option+↑` | Start/extend line selection upward |
+| `Option+↓` | Start/extend line selection downward |
+| `Backspace` / `Delete` | Delete all selected lines |
+| `Enter` | Delete all selected lines |
+| `Esc` | Cancel selection |
+
+Selected lines are highlighted with a purple background. The status bar shows "SEL:N" where N is the number of selected lines.
+
 ### Highlight Mode
 When in highlight mode (`Ctrl+H`):
 | Key | Action |

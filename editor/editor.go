@@ -1,6 +1,7 @@
 package editor
 
 import (
+	"fmt"
 	"os"
 	"strings"
 	"time"
@@ -49,9 +50,13 @@ type Model struct {
 	boldMode      bool
 	italicMode    bool
 	underlineMode bool
-	// Highlight selection mode
+	// Highlight selection mode (within a line)
 	highlightMode   bool // When true, arrow keys select text for highlighting
 	selectionStart  int  // Starting position of selection
+	// Multi-line selection mode
+	multiLineSelect   bool // When true, lines are being selected
+	lineSelectionStart int  // Starting line of multi-line selection
+	lineSelectionEnd   int  // Ending line of multi-line selection (can be before or after start)
 }
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
@@ -159,6 +164,68 @@ func (m *Model) exitHighlightMode() {
 	m.highlightMode = false
 }
 
+// clearMultiLineSelection clears the multi-line selection
+func (m *Model) clearMultiLineSelection() {
+	m.multiLineSelect = false
+	m.lineSelectionStart = 0
+	m.lineSelectionEnd = 0
+}
+
+// getSelectedLineRange returns the start and end lines of multi-line selection (ordered)
+func (m *Model) getSelectedLineRange() (int, int) {
+	start, end := m.lineSelectionStart, m.lineSelectionEnd
+	if start > end {
+		start, end = end, start
+	}
+	return start, end
+}
+
+// isLineSelected returns true if the given line is within multi-line selection
+func (m *Model) isLineSelected(line int) bool {
+	if !m.multiLineSelect {
+		return false
+	}
+	start, end := m.getSelectedLineRange()
+	return line >= start && line <= end
+}
+
+// deleteSelectedLines deletes all lines in multi-line selection
+func (m *Model) deleteSelectedLines() tea.Cmd {
+	if !m.multiLineSelect {
+		return nil
+	}
+
+	start, end := m.getSelectedLineRange()
+	count := end - start + 1
+
+	// Don't delete all blocks - keep at least one
+	if count >= m.doc.BlockCount() {
+		// Clear all content but keep one empty block
+		for m.doc.BlockCount() > 1 {
+			m.doc.RemoveBlock(m.doc.BlockCount() - 1)
+		}
+		m.doc.Blocks[0].SetContent("")
+		m.doc.Blocks[0].SetSpans(nil)
+		m.doc.CursorLine = 0
+		m.doc.CursorCol = 0
+	} else {
+		// Delete selected blocks from end to start to maintain indices
+		for i := end; i >= start; i-- {
+			m.doc.RemoveBlock(i)
+		}
+		// Adjust cursor position
+		if start >= m.doc.BlockCount() {
+			m.doc.CursorLine = m.doc.BlockCount() - 1
+		} else {
+			m.doc.CursorLine = start
+		}
+		m.doc.CursorCol = 0
+	}
+
+	m.clearMultiLineSelection()
+	return m.markDirty()
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
 	return tea.EnableMouseCellMotion
@@ -186,11 +253,36 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, tea.Quit
 
+		case "alt+up", "alt+k":
+			// Start or extend multi-line selection upward
+			if !m.multiLineSelect {
+				m.multiLineSelect = true
+				m.lineSelectionStart = m.doc.CursorLine
+				m.lineSelectionEnd = m.doc.CursorLine
+			}
+			if m.lineSelectionEnd > 0 {
+				m.lineSelectionEnd--
+				m.doc.CursorLine = m.lineSelectionEnd
+			}
+
+		case "alt+down", "alt+j":
+			// Start or extend multi-line selection downward
+			if !m.multiLineSelect {
+				m.multiLineSelect = true
+				m.lineSelectionStart = m.doc.CursorLine
+				m.lineSelectionEnd = m.doc.CursorLine
+			}
+			if m.lineSelectionEnd < m.doc.BlockCount()-1 {
+				m.lineSelectionEnd++
+				m.doc.CursorLine = m.lineSelectionEnd
+			}
+
 		case "up":
 			if m.highlightMode {
 				// In highlight mode, up/down exits without applying
 				m.highlightMode = false
 			}
+			m.clearMultiLineSelection()
 			m.doc.MoveUp()
 
 		case "down":
@@ -198,25 +290,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// In highlight mode, up/down exits without applying
 				m.highlightMode = false
 			}
+			m.clearMultiLineSelection()
 			m.doc.MoveDown()
 
 		case "left":
-			if m.highlightMode {
-				// Extend selection left
-				m.doc.MoveLeft()
-			} else {
-				m.doc.MoveLeft()
-			}
+			m.clearMultiLineSelection()
+			m.doc.MoveLeft()
 
 		case "right":
-			if m.highlightMode {
-				// Extend selection right
-				m.doc.MoveRight()
-			} else {
-				m.doc.MoveRight()
-			}
+			m.clearMultiLineSelection()
+			m.doc.MoveRight()
 
 		case "home", "ctrl+a":
+			m.clearMultiLineSelection()
 			if m.highlightMode {
 				// Extend selection to start of line
 				m.doc.MoveToLineStart()
@@ -225,6 +311,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "end", "ctrl+e":
+			m.clearMultiLineSelection()
 			if m.highlightMode {
 				// Extend selection to end of line
 				m.doc.MoveToLineEnd()
@@ -247,7 +334,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.selectionStart = m.doc.CursorCol
 
 		case "backspace":
-			if m.highlightMode {
+			if m.multiLineSelect {
+				cmd = m.deleteSelectedLines()
+			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
 				if !m.doc.DeleteCharBackward() {
@@ -260,7 +349,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "delete":
-			if m.highlightMode {
+			if m.multiLineSelect {
+				cmd = m.deleteSelectedLines()
+			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
 				if !m.doc.DeleteCharForward() {
@@ -270,7 +361,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "enter":
-			if m.highlightMode {
+			if m.multiLineSelect {
+				cmd = m.deleteSelectedLines()
+			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
 				m.handleEnter()
@@ -278,6 +371,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case " ":
+			m.clearMultiLineSelection()
 			if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
@@ -289,14 +383,17 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "esc":
-			// Escape key exits highlight mode without applying
-			if m.highlightMode {
+			// Escape key exits selection modes without applying
+			if m.multiLineSelect {
+				m.clearMultiLineSelection()
+			} else if m.highlightMode {
 				m.exitHighlightMode()
 			}
 
 		default:
 			// Handle regular character input with formatting
 			if len(msg.Runes) > 0 {
+				m.clearMultiLineSelection()
 				if m.highlightMode {
 					cmd = m.applyHighlightAndExit()
 				} else {
@@ -530,12 +627,15 @@ func (m Model) View() string {
 		blk := m.doc.BlockAt(i)
 		isFocused := i == m.doc.CursorLine
 
-		// Calculate selection range for this block
+		// Calculate selection range for this block (within-line highlight)
 		selStart, selEnd := -1, -1
 		if m.highlightMode && isFocused {
 			selStart = m.selectionStart
 			selEnd = m.doc.CursorCol
 		}
+
+		// Check if this line is part of multi-line selection
+		lineSelected := m.isLineSelected(i)
 
 		ctx := drawer.DrawContext{
 			Width:          m.width,
@@ -545,6 +645,7 @@ func (m Model) View() string {
 			ShowCursor:     true,
 			SelectionStart: selStart,
 			SelectionEnd:   selEnd,
+			LineSelected:   lineSelected,
 		}
 
 		// Consistent indentation for all blocks
@@ -573,6 +674,11 @@ func (m Model) View() string {
 	if m.highlightMode {
 		formatIndicators = append(formatIndicators, styles.HighlightIndicator.Render("H"))
 	}
+	if m.multiLineSelect {
+		start, end := m.getSelectedLineRange()
+		count := end - start + 1
+		formatIndicators = append(formatIndicators, styles.SelectionIndicator.Render(fmt.Sprintf("SEL:%d", count)))
+	}
 	if len(formatIndicators) > 0 {
 		b.WriteString("  ")
 		b.WriteString(strings.Join(formatIndicators, " "))
@@ -582,10 +688,12 @@ func (m Model) View() string {
 	// Help text
 	b.WriteString("\n")
 	var helpText string
-	if m.highlightMode {
+	if m.multiLineSelect {
+		helpText = "LINE SELECT: ⌥↑/↓: Extend • Backspace/Del: Delete lines • Esc: Cancel"
+	} else if m.highlightMode {
 		helpText = "HIGHLIGHT MODE: ←/→: Select • Enter/Space: Apply • Esc: Cancel"
 	} else {
-		helpText = "←/→: Cursor • ↑/↓: Block • ^B: Bold • ^I: Italic • ^U: Underline • ^H: Highlight • ^C: Quit"
+		helpText = "←/→: Cursor • ↑/↓: Block • ⌥↑/↓: Select lines • ^B/I/U: Format • ^H: Highlight • ^C: Quit"
 	}
 	help := styles.HelpStyle.Render(helpText)
 	b.WriteString(help)

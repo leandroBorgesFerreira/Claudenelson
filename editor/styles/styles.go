@@ -97,4 +97,10 @@ var (
 	SelectionStyle = lipgloss.NewStyle().
 			Background(lipgloss.Color("39")).
 			Foreground(lipgloss.Color("0"))
+
+	// Multi-line selection indicator
+	SelectionIndicator = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("255")).
+				Background(lipgloss.Color("62")).
+				Padding(0, 1)
 )

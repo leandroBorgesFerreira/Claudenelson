@@ -1,6 +1,8 @@
 package drawer
 
 import (
+	"github.com/charmbracelet/lipgloss"
+
 	"claudenelson/editor/block"
 	"claudenelson/editor/styles"
 )
@@ -12,11 +14,19 @@ type ListDrawer struct{}
 func (d *ListDrawer) Draw(b block.Block, ctx DrawContext) string {
 	content := b.Content()
 	spans := b.Spans()
-	prefix := styles.ListPrefixStyle.Render("• ")
+
+	var prefix string
+	if ctx.LineSelected {
+		prefix = lipgloss.NewStyle().Background(lipgloss.Color("62")).Foreground(lipgloss.Color("255")).Render("• ")
+	} else {
+		prefix = styles.ListPrefixStyle.Render("• ")
+	}
 
 	var styledContent string
 	if ctx.ShowCursor && ctx.IsFocused {
-		styledContent = RenderFormattedContentWithCursorAndSelection(content, spans, styles.ListContentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd)
+		styledContent = RenderFormattedContentFull(content, spans, styles.ListContentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
+	} else if ctx.LineSelected {
+		styledContent = RenderFormattedContentLineSelected(content, spans, styles.ListContentStyle)
 	} else {
 		styledContent = RenderFormattedContentWithSelection(content, spans, styles.ListContentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
