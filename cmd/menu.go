@@ -114,9 +114,10 @@ func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
-		if m.state == stateList {
+		if m.state == stateList && m.width > 0 && m.height > 0 {
 			m.list.SetSize(msg.Width, msg.Height-4)
 		}
+		return m, nil
 
 	case spinner.TickMsg:
 		if m.state == stateLoading {
@@ -154,11 +155,24 @@ func (m menuModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		// Set height to accommodate title (1) + 3 preview lines + spacing
 		delegate.SetHeight(5)
 
-		m.list = list.New(items, delegate, m.width, m.height-4)
+		// Use sensible defaults if dimensions not yet set
+		width := m.width
+		height := m.height
+		if width == 0 {
+			width = 80
+		}
+		if height == 0 {
+			height = 24
+		}
+
+		m.list = list.New(items, delegate, width, height-4)
 		m.list.Title = "Select a document to edit"
 		m.list.SetShowStatusBar(true)
 		m.list.SetFilteringEnabled(true)
 		m.list.Styles.Title = menuTitleStyle
+
+		// Ensure we start at the first item
+		m.list.Select(0)
 
 		m.state = stateList
 		return m, nil

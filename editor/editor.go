@@ -47,6 +47,8 @@ type Model struct {
 	savePath  string    // Path to save document
 	dirty     bool      // Document has unsaved changes
 	saveTimer time.Time // Last modification time
+	// Viewport scrolling
+	scrollOffset int // First visible line (block index)
 	// Formatting modes
 	boldMode      bool
 	italicMode    bool
@@ -264,6 +266,64 @@ func (m *Model) isLineSelected(line int) bool {
 	return line >= start && line <= end
 }
 
+// getVisibleLineCount returns the number of lines available for content
+func (m *Model) getVisibleLineCount() int {
+	// Reserve lines for: title (1) + empty (1) + format indicators (2) + help (2) + padding
+	reserved := 7
+	visible := m.height - reserved
+	if visible < 1 {
+		visible = 1
+	}
+	return visible
+}
+
+// ensureCursorVisible adjusts scroll offset to keep cursor in view
+func (m *Model) ensureCursorVisible() {
+	visibleLines := m.getVisibleLineCount()
+
+	// If cursor is above the viewport, scroll up
+	if m.doc.CursorLine < m.scrollOffset {
+		m.scrollOffset = m.doc.CursorLine
+	}
+
+	// If cursor is below the viewport, scroll down
+	if m.doc.CursorLine >= m.scrollOffset+visibleLines {
+		m.scrollOffset = m.doc.CursorLine - visibleLines + 1
+	}
+
+	// Ensure scroll offset is valid
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+	maxOffset := m.doc.BlockCount() - visibleLines
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+}
+
+// scrollUp scrolls the viewport up by n lines
+func (m *Model) scrollUp(n int) {
+	m.scrollOffset -= n
+	if m.scrollOffset < 0 {
+		m.scrollOffset = 0
+	}
+}
+
+// scrollDown scrolls the viewport down by n lines
+func (m *Model) scrollDown(n int) {
+	maxOffset := m.doc.BlockCount() - m.getVisibleLineCount()
+	if maxOffset < 0 {
+		maxOffset = 0
+	}
+	m.scrollOffset += n
+	if m.scrollOffset > maxOffset {
+		m.scrollOffset = maxOffset
+	}
+}
+
 // captureCurrentBlockState captures the state of the current block for undo
 func (m *Model) captureCurrentBlockState() {
 	if m.doc.CursorLine != m.lastBlockIndex || m.lastBlockState == nil {
@@ -392,6 +452,7 @@ func (m *Model) performUndo() tea.Cmd {
 	if m.doc.CursorLine < 0 {
 		m.doc.CursorLine = 0
 	}
+	m.ensureCursorVisible()
 
 	// Reset tracking state
 	m.lastBlockState = nil
@@ -438,6 +499,8 @@ func (m *Model) performRedo() tea.Cmd {
 			}
 		}
 	}
+
+	m.ensureCursorVisible()
 
 	// Reset tracking state
 	m.lastBlockState = nil
@@ -578,6 +641,7 @@ func (m *Model) deleteCharSelection() tea.Cmd {
 	}
 
 	m.clearCharSelection()
+	m.ensureCursorVisible()
 	return m.markDirty()
 }
 
@@ -635,6 +699,7 @@ func (m *Model) deleteSelectedLines() tea.Cmd {
 	}
 
 	m.clearMultiLineSelection()
+	m.ensureCursorVisible()
 	return m.markDirty()
 }
 
@@ -676,6 +741,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.lineSelectionEnd--
 				m.doc.CursorLine = m.lineSelectionEnd
 			}
+			m.ensureCursorVisible()
 
 		case "alt+down", "alt+j":
 			// Start or extend multi-line selection downward
@@ -688,6 +754,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.lineSelectionEnd++
 				m.doc.CursorLine = m.lineSelectionEnd
 			}
+			m.ensureCursorVisible()
 
 		case "alt+left", "alt+h":
 			// Start or extend character selection leftward
@@ -713,6 +780,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.doc.CursorCol = m.charSelEndCol
 				}
 			}
+			m.ensureCursorVisible()
 
 		case "alt+right", "alt+l":
 			// Start or extend character selection rightward
@@ -739,6 +807,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					m.doc.CursorCol = 0
 				}
 			}
+			m.ensureCursorVisible()
 
 		case "up":
 			if m.highlightMode {
@@ -748,6 +817,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordBlockModification() // Commit any pending changes
 			m.clearAllSelections()
 			m.doc.MoveUp()
+			m.ensureCursorVisible()
 
 		case "down":
 			if m.highlightMode {
@@ -757,6 +827,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.recordBlockModification() // Commit any pending changes
 			m.clearAllSelections()
 			m.doc.MoveDown()
+			m.ensureCursorVisible()
+
+		case "pgup":
+			m.recordBlockModification()
+			m.clearAllSelections()
+			// Move cursor up by visible page
+			pageSize := m.getVisibleLineCount()
+			for i := 0; i < pageSize && m.doc.CursorLine > 0; i++ {
+				m.doc.MoveUp()
+			}
+			m.ensureCursorVisible()
+
+		case "pgdown":
+			m.recordBlockModification()
+			m.clearAllSelections()
+			// Move cursor down by visible page
+			pageSize := m.getVisibleLineCount()
+			for i := 0; i < pageSize && m.doc.CursorLine < m.doc.BlockCount()-1; i++ {
+				m.doc.MoveDown()
+			}
+			m.ensureCursorVisible()
 
 		case "left":
 			m.clearAllSelections()
@@ -909,6 +1000,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case tea.WindowSizeMsg:
 		m.width = msg.Width
 		m.height = msg.Height
+		m.ensureCursorVisible()
 
 	case tea.MouseMsg:
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
@@ -966,6 +1058,7 @@ func (m *Model) handleEnter() {
 	// Move cursor to start of new block
 	m.doc.MoveDown()
 	m.doc.CursorCol = 0
+	m.ensureCursorVisible()
 
 	// Reset undo tracking state
 	m.lastBlockState = nil
@@ -1139,8 +1232,22 @@ func (m Model) View() string {
 	// Empty line (line 1)
 	b.WriteString("\n")
 
-	// Blocks start at line 2, one block per line
-	for i := 0; i < m.doc.BlockCount(); i++ {
+	// Calculate visible range
+	visibleLines := m.getVisibleLineCount()
+	startLine := m.scrollOffset
+	endLine := m.scrollOffset + visibleLines
+	if endLine > m.doc.BlockCount() {
+		endLine = m.doc.BlockCount()
+	}
+
+	// Show scroll indicator if not at top
+	if m.scrollOffset > 0 {
+		b.WriteString(styles.HelpStyle.Render(fmt.Sprintf("  ↑ %d more lines above", m.scrollOffset)))
+		b.WriteString("\n")
+	}
+
+	// Render only visible blocks
+	for i := startLine; i < endLine; i++ {
 		blk := m.doc.BlockAt(i)
 		isFocused := i == m.doc.CursorLine
 
@@ -1177,6 +1284,13 @@ func (m Model) View() string {
 
 		b.WriteString(indent)
 		b.WriteString(content)
+		b.WriteString("\n")
+	}
+
+	// Show scroll indicator if not at bottom
+	remainingLines := m.doc.BlockCount() - endLine
+	if remainingLines > 0 {
+		b.WriteString(styles.HelpStyle.Render(fmt.Sprintf("  ↓ %d more lines below", remainingLines)))
 		b.WriteString("\n")
 	}
 
@@ -1219,7 +1333,7 @@ func (m Model) View() string {
 	} else if m.highlightMode {
 		helpText = "HIGHLIGHT MODE: ←/→: Select • Enter/Space: Apply • Esc: Cancel"
 	} else {
-		helpText = "←/→: Cursor • ↑/↓: Block • ^Z: Undo • ^Y: Redo • ^B/I/U/H: Format • ^C: Quit"
+		helpText = "←/→: Cursor • ↑/↓: Block • PgUp/Dn: Scroll • ^Z: Undo • ^B/I/U/H: Format • ^C: Quit"
 	}
 	help := styles.HelpStyle.Render(helpText)
 	b.WriteString(help)
