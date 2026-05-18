@@ -71,6 +71,11 @@ type Model struct {
 	lastBlockState    *undo.BlockState // State before current edit session
 	lastBlockIndex    int              // Index of block being edited
 	pendingUndoRecord bool             // Whether we need to record an undo entry
+	// Double-click tracking
+	lastClickTime time.Time // Time of last mouse click
+	lastClickLine int       // Line of last mouse click
+	lastClickCol  int       // Column of last mouse click
+	clickCount    int       // Number of consecutive clicks (1=single, 2=double for word, 3=triple for line)
 }
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
@@ -78,14 +83,123 @@ func (m Model) getBlockAtY(y int) int {
 	// View structure:
 	// Line 0: Title
 	// Line 1: Empty
-	// Line 2+: Blocks (one per line)
-	// Note: offset may need adjustment based on terminal behavior
-	const headerLines = 8
-	blockIndex := y - headerLines
+	// Line 2: (optional) "↑ N more lines above" if scrollOffset > 0
+	// Line 2 or 3: First visible block
+	headerLines := 1
+	if m.scrollOffset > 0 {
+		headerLines = 2 // Extra line for scroll indicator
+	}
+
+	screenBlockIndex := y - headerLines
+	if screenBlockIndex < 0 {
+		return -1
+	}
+
+	blockIndex := screenBlockIndex + m.scrollOffset
 	if blockIndex >= 0 && blockIndex < m.doc.BlockCount() {
 		return blockIndex
 	}
 	return -1
+}
+
+// getColumnAtX returns the column index at the given X position for a block
+func (m Model) getColumnAtX(blockIndex, x int) int {
+	if blockIndex < 0 || blockIndex >= m.doc.BlockCount() {
+		return 0
+	}
+	blk := m.doc.BlockAt(blockIndex)
+	if blk == nil {
+		return 0
+	}
+
+	// Account for left indent (2 spaces) and block prefix
+	prefix := m.getBlockPrefix(blk)
+	prefixLen := len(prefix)
+	indent := 2
+
+	// Calculate column from x position
+	col := x - indent - prefixLen
+	if col < 0 {
+		col = 0
+	}
+
+	// Clamp to content length
+	content := []rune(blk.Content())
+	if col > len(content) {
+		col = len(content)
+	}
+
+	return col
+}
+
+// getBlockPrefix returns the prefix string for a block type (bullet, checkbox, etc.)
+func (m Model) getBlockPrefix(blk block.Block) string {
+	switch blk.Type() {
+	case block.TypeListItem:
+		return "• "
+	case block.TypeCheckboxItem:
+		if cb, ok := blk.(*block.CheckboxBlock); ok {
+			if cb.IsChecked() {
+				return "☑ "
+			}
+			return "☐ "
+		}
+		return "☐ "
+	default:
+		return ""
+	}
+}
+
+// getWordBoundsAt returns the start and end column of the word at the given position
+func (m Model) getWordBoundsAt(line, col int) (start, end int) {
+	if line < 0 || line >= m.doc.BlockCount() {
+		return 0, 0
+	}
+	blk := m.doc.BlockAt(line)
+	if blk == nil {
+		return 0, 0
+	}
+
+	content := []rune(blk.Content())
+	if len(content) == 0 {
+		return 0, 0
+	}
+
+	// Clamp column to valid range
+	if col < 0 {
+		col = 0
+	}
+	if col >= len(content) {
+		col = len(content) - 1
+	}
+	if col < 0 {
+		return 0, 0
+	}
+
+	// Check if we're on a word character
+	isWordChar := func(r rune) bool {
+		return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
+			(r >= '0' && r <= '9') || r == '_'
+	}
+
+	// If not on a word character, just select the single character
+	if !isWordChar(content[col]) {
+		return col, col + 1
+	}
+
+	// Find start of word
+	start = col
+	for start > 0 && isWordChar(content[start-1]) {
+		start--
+	}
+
+	// Find end of word
+	end = col
+	for end < len(content) && isWordChar(content[end]) {
+		end++
+	}
+
+	return start, end
 }
 
 // New creates a new editor model with sample content or loads from file
@@ -1006,12 +1120,65 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
 			blockIndex := m.getBlockAtY(msg.Y)
 			if blockIndex >= 0 {
-				m.doc.SetCursor(blockIndex)
-				// Toggle checkbox if clicked
-				if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
-					cb.Toggle()
-					cmd = m.markDirty()
+				col := m.getColumnAtX(blockIndex, msg.X)
+				now := time.Now()
+
+				// Detect multi-click (within 500ms and same position)
+				const doubleClickThreshold = 500 * time.Millisecond
+				if now.Sub(m.lastClickTime) < doubleClickThreshold &&
+					blockIndex == m.lastClickLine {
+					m.clickCount++
+				} else {
+					m.clickCount = 1
 				}
+
+				// Update click tracking
+				m.lastClickTime = now
+				m.lastClickLine = blockIndex
+				m.lastClickCol = col
+
+				switch m.clickCount {
+				case 1:
+					// Single click: move cursor, clear selection
+					m.clearAllSelections()
+					m.doc.SetCursor(blockIndex)
+					m.doc.CursorCol = col
+					// Toggle checkbox if clicked on checkbox
+					if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
+						// Only toggle if clicking on the checkbox area (prefix)
+						if msg.X < 5 {
+							cb.Toggle()
+							cmd = m.markDirty()
+						}
+					}
+				case 2:
+					// Double click: select word
+					m.doc.SetCursor(blockIndex)
+					start, end := m.getWordBoundsAt(blockIndex, col)
+					if start != end {
+						m.charSelect = true
+						m.charSelStartLine = blockIndex
+						m.charSelStartCol = start
+						m.charSelEndLine = blockIndex
+						m.charSelEndCol = end
+						m.doc.CursorCol = end
+					}
+				default:
+					// Triple click (or more): select whole line
+					m.clickCount = 3 // Cap at 3
+					m.doc.SetCursor(blockIndex)
+					blk := m.doc.BlockAt(blockIndex)
+					if blk != nil {
+						content := []rune(blk.Content())
+						m.charSelect = true
+						m.charSelStartLine = blockIndex
+						m.charSelStartCol = 0
+						m.charSelEndLine = blockIndex
+						m.charSelEndCol = len(content)
+						m.doc.CursorCol = len(content)
+					}
+				}
+				m.ensureCursorVisible()
 			}
 		}
 	}
@@ -1313,9 +1480,6 @@ func (m Model) View() string {
 		start, end := m.getSelectedLineRange()
 		count := end - start + 1
 		formatIndicators = append(formatIndicators, styles.SelectionIndicator.Render(fmt.Sprintf("LINES:%d", count)))
-	}
-	if m.charSelect {
-		formatIndicators = append(formatIndicators, styles.SelectionIndicator.Render("SELECT"))
 	}
 	if len(formatIndicators) > 0 {
 		b.WriteString("  ")

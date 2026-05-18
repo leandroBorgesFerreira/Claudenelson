@@ -102,7 +102,7 @@
                 "name": "message",
                 "number": 0
             },
-            "text": "The birthplace of the Renaissance.",
+            "text": "The birthplace of the .",
             "position": 9
         },
         {
@@ -277,7 +277,7 @@
             "position": 26
         },
         {
-            "id": "block-32",
+            "id": "block-28",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
@@ -286,7 +286,7 @@
             "position": 27
         },
         {
-            "id": "nFo6By27PO",
+            "id": "Mpogf2sH9N",
             "type": {
                 "name": "message",
                 "number": 0
@@ -295,7 +295,7 @@
         }
     ],
     "createdAt": 1776610800000,
-    "lastUpdatedAt": 1779115267411,
+    "lastUpdatedAt": 1779127067029,
     "parentId": "root",
     "isLocked": false,
     "isFavorite": false,
