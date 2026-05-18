@@ -133,28 +133,13 @@
             "position": 12
         },
         {
-            "id": "block-14",
-            "type": {
-                "name": "message",
-                "number": 0
-            },
-            "text": "Venice",
-            "position": 13,
-            "tags": [
-                {
-                    "tag": "H2",
-                    "position": 0
-                }
-            ]
-        },
-        {
             "id": "block-15",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "The romantic city of canals.",
-            "position": 14
+            "position": 13
         },
         {
             "id": "block-16",
@@ -163,7 +148,7 @@
                 "number": 16
             },
             "text": "St. Mark's Square - Heart of Venice",
-            "position": 15
+            "position": 14
         },
         {
             "id": "block-17",
@@ -172,7 +157,7 @@
                 "number": 16
             },
             "text": "Grand Canal - Take a gondola ride",
-            "position": 16
+            "position": 15
         },
         {
             "id": "block-18",
@@ -181,7 +166,7 @@
                 "number": 16
             },
             "text": "Murano Island - Famous for glassmaking",
-            "position": 17
+            "position": 16
         },
         {
             "id": "block-19",
@@ -190,7 +175,7 @@
                 "number": 0
             },
             "text": "Amalfi Coast",
-            "position": 18,
+            "position": 17,
             "tags": [
                 {
                     "tag": "H2",
@@ -205,7 +190,7 @@
                 "number": 0
             },
             "text": "Stunning coastal scenery in southern Italy.",
-            "position": 19
+            "position": 18
         },
         {
             "id": "block-21",
@@ -214,7 +199,7 @@
                 "number": 16
             },
             "text": "Positano - Colorful cliffside village",
-            "position": 20
+            "position": 19
         },
         {
             "id": "block-22",
@@ -223,7 +208,7 @@
                 "number": 16
             },
             "text": "Ravello - Gardens with panoramic views",
-            "position": 21
+            "position": 20
         },
         {
             "id": "block-23",
@@ -232,7 +217,7 @@
                 "number": 16
             },
             "text": "Amalfi - Historic maritime town",
-            "position": 22
+            "position": 21
         },
         {
             "id": "block-24",
@@ -241,7 +226,7 @@
                 "number": 0
             },
             "text": "Travel Tips",
-            "position": 23,
+            "position": 22,
             "tags": [
                 {
                     "tag": "H2",
@@ -256,7 +241,7 @@
                 "number": 16
             },
             "text": "Best time to visit: April to June or September to October",
-            "position": 24
+            "position": 23
         },
         {
             "id": "block-26",
@@ -265,7 +250,7 @@
                 "number": 16
             },
             "text": "Book popular attractions in advance",
-            "position": 25
+            "position": 24
         },
         {
             "id": "block-27",
@@ -274,7 +259,7 @@
                 "number": 16
             },
             "text": "Learn a few Italian phrases - locals appreciate it!",
-            "position": 26
+            "position": 25
         },
         {
             "id": "block-28",
@@ -283,19 +268,19 @@
                 "number": 16
             },
             "text": "ry local cuisine: pasta, pizza, gelato, and espresso",
-            "position": 27
+            "position": 26
         },
         {
-            "id": "Dh887J6GQY",
+            "id": "ksZYZA2OnD",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 28
+            "position": 27
         }
     ],
     "createdAt": 1776610800000,
-    "lastUpdatedAt": 1779127460515,
+    "lastUpdatedAt": 1779127643787,
     "parentId": "root",
     "isLocked": false,
     "isFavorite": false,

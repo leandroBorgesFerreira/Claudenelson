@@ -114,13 +114,13 @@ func (m Model) getColumnAtX(blockIndex, x int) int {
 		return 0
 	}
 
-	// Account for left indent (2 spaces) and block prefix
+	// Account for selection handle "|| " (3 chars) and block prefix
 	prefix := m.getBlockPrefix(blk)
 	prefixLen := len([]rune(prefix)) // Use rune length for display width
-	indent := 2
+	handleLen := 3                   // "|| " = 3 characters
 
 	// Calculate column from x position
-	col := x - indent - prefixLen
+	col := x - handleLen - prefixLen
 	if col < 0 {
 		col = 0
 	}
@@ -132,6 +132,11 @@ func (m Model) getColumnAtX(blockIndex, x int) int {
 	}
 
 	return col
+}
+
+// isClickOnHandle returns true if the X position is on the "||" handle
+func (m Model) isClickOnHandle(x int) bool {
+	return x < 2 // "||" is at positions 0 and 1
 }
 
 // getBlockPrefix returns the prefix string for a block type (bullet, checkbox, etc.)
@@ -1143,24 +1148,40 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 					switch m.clickCount {
 					case 1:
-						// Single click: move cursor, start potential drag
+						// Single click
 						m.clearAllSelections()
 						m.doc.SetCursor(blockIndex)
-						m.doc.CursorCol = col
-						// Start drag selection
-						m.isDragging = true
-						m.charSelect = true
-						m.charSelStartLine = blockIndex
-						m.charSelStartCol = col
-						m.charSelEndLine = blockIndex
-						m.charSelEndCol = col
-						// Toggle checkbox if clicked on checkbox area
-						if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
-							if msg.X < 5 {
-								cb.Toggle()
-								m.isDragging = false
-								m.clearCharSelection()
-								cmd = m.markDirty()
+
+						// Check if click is on the "||" handle
+						if m.isClickOnHandle(msg.X) {
+							// Select whole line
+							blk := m.doc.BlockAt(blockIndex)
+							if blk != nil {
+								content := []rune(blk.Content())
+								m.charSelect = true
+								m.charSelStartLine = blockIndex
+								m.charSelStartCol = 0
+								m.charSelEndLine = blockIndex
+								m.charSelEndCol = len(content)
+								m.doc.CursorCol = len(content)
+							}
+						} else {
+							m.doc.CursorCol = col
+							// Start drag selection
+							m.isDragging = true
+							m.charSelect = true
+							m.charSelStartLine = blockIndex
+							m.charSelStartCol = col
+							m.charSelEndLine = blockIndex
+							m.charSelEndCol = col
+							// Toggle checkbox if clicked on checkbox area
+							if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
+								if msg.X < 6 { // Adjusted for handle
+									cb.Toggle()
+									m.isDragging = false
+									m.clearCharSelection()
+									cmd = m.markDirty()
+								}
 							}
 						}
 					case 2:
@@ -1481,13 +1502,17 @@ func (m Model) View() string {
 			LineSelected:   lineSelected,
 		}
 
-		// Consistent indentation for all blocks
-		indent := "  "
-
 		// Render the block content
 		content := m.registry.Draw(blk, ctx)
 
-		b.WriteString(indent)
+		// Selection handle at line start
+		handle := styles.HandleStyle.Render("||")
+		if lineSelected {
+			handle = styles.HandleSelectedStyle.Render("||")
+		}
+
+		b.WriteString(handle)
+		b.WriteString(" ")
 		b.WriteString(content)
 		b.WriteString("\n")
 	}

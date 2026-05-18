@@ -103,4 +103,12 @@ var (
 				Foreground(lipgloss.Color("255")).
 				Background(lipgloss.Color("62")).
 				Padding(0, 1)
+
+	// Line selection handle
+	HandleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240"))
+
+	HandleSelectedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("39")).
+				Bold(true)
 )
