@@ -45,3 +45,16 @@ release:
   draft: false
   prerelease: auto
   name_template: "v{{.Version}}"
+
+brews:
+  - repository:
+      owner: leandroBorgesFerreira
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_TOKEN }}"
+    directory: Formula
+    homepage: "https://github.com/leandroBorgesFerreira/Claudenelson"
+    description: "Terminal block-based text editor like Notion"
+    license: "MIT"
+    commit_author:
+      name: leandroBorgesFerreira
+      email: lehen01@gmail.com
