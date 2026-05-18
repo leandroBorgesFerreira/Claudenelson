@@ -64,16 +64,26 @@ claudenelson write
 | `Ctrl+U` | Toggle underline mode |
 | `Ctrl+H` | Enter highlight selection mode |
 
-### Multi-Line Selection
+### Multi-Line Selection (Whole Lines)
 | Key | Action |
 |-----|--------|
 | `Option+↑` | Start/extend line selection upward |
 | `Option+↓` | Start/extend line selection downward |
 | `Backspace` / `Delete` | Delete all selected lines |
-| `Enter` | Delete all selected lines |
 | `Esc` | Cancel selection |
 
-Selected lines are highlighted with a purple background. The status bar shows "SEL:N" where N is the number of selected lines.
+Selected lines are highlighted with a purple background. The status bar shows "LINES:N" where N is the number of selected lines.
+
+### Character Selection (Character by Character)
+| Key | Action |
+|-----|--------|
+| `Option+←` | Start/extend selection leftward (can span lines) |
+| `Option+→` | Start/extend selection rightward (can span lines) |
+| `Backspace` / `Delete` | Delete selected characters |
+| Any character | Replace selection with typed character |
+| `Esc` | Cancel selection |
+
+Selected characters are highlighted with a blue background. The status bar shows "SELECT" when character selection is active.
 
 ### Highlight Mode
 When in highlight mode (`Ctrl+H`):

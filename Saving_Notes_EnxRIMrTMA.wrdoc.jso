@@ -1,0 +1,166 @@
+{
+    "id": "nU51FZfJCM",
+    "title": "",
+    "workspaceId": "disconnected_user",
+    "content": [
+        {
+            "id": "block-1",
+            "type": {
+                "name": "title",
+                "number": 11
+            },
+            "position": 0
+        },
+        {
+            "id": "block-13",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 1
+        },
+        {
+            "id": "block-14",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Welcome to the Block Editor",
+            "position": 2
+        },
+        {
+            "id": "block-2",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "This is a Notion-like block-based editor.",
+            "position": 3
+        },
+        {
+            "id": "block-3",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Features",
+            "position": 4,
+            "tags": [
+                {
+                    "tag": "H2",
+                    "position": 0
+                }
+            ]
+        },
+        {
+            "id": "block-4",
+            "type": {
+                "name": "unordered_list_item",
+                "number": 16
+            },
+            "text": "Text blocks for paragraphs",
+            "position": 5
+        },
+        {
+            "id": "block-5",
+            "type": {
+                "name": "unordered_list_item",
+                "number": 16
+            },
+            "text": "Headings (H1 through H4)",
+            "position": 6
+        },
+        {
+            "id": "block-6",
+            "type": {
+                "name": "unordered_list_item",
+                "number": 16
+            },
+            "text": "Checkbox/todo items",
+            "position": 7
+        },
+        {
+            "id": "block-7",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Todo List",
+            "position": 8,
+            "tags": [
+                {
+                    "tag": "H3",
+                    "position": 0
+                }
+            ]
+        },
+        {
+            "id": "block-8",
+            "type": {
+                "name": "check_item",
+                "number": 10
+            },
+            "text": "Implement block rendering",
+            "position": 9,
+            "checked": true
+        },
+        {
+            "id": "block-9",
+            "type": {
+                "name": "check_item",
+                "number": 10
+            },
+            "text": "Add navigation with arrow keys",
+            "position": 10,
+            "checked": true
+        },
+        {
+            "id": "block-10",
+            "type": {
+                "name": "check_item",
+                "number": 10
+            },
+            "text": "Add editing capabilities",
+            "position": 11,
+            "checked": false
+        },
+        {
+            "id": "block-11",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Navigation",
+            "position": 12,
+            "tags": [
+                {
+                    "tag": "H4",
+                    "position": 0
+                }
+            ]
+        },
+        {
+            "id": "block-12",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Use Up/Down arrows to move between blocks.",
+            "position": 13
+        },
+        {
+            "id": "k2bosrqfuq",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 14
+        }
+    ],
+    "createdAt": 1779111619242,
+    "lastUpdatedAt": 1779111619242,
+    "parentId": "root",
+    "isLocked": false,
+    "isFavorite": false,
+    "deleted": false
+}

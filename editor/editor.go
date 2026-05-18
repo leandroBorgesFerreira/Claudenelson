@@ -54,10 +54,16 @@ type Model struct {
 	// Highlight selection mode (within a line)
 	highlightMode   bool // When true, arrow keys select text for highlighting
 	selectionStart  int  // Starting position of selection
-	// Multi-line selection mode
-	multiLineSelect    bool // When true, lines are being selected
+	// Multi-line selection mode (whole lines)
+	multiLineSelect    bool // When true, whole lines are being selected
 	lineSelectionStart int  // Starting line of multi-line selection
-	lineSelectionEnd   int  // Ending line of multi-line selection (can be before or after start)
+	lineSelectionEnd   int  // Ending line of multi-line selection
+	// Character selection mode (character by character, can span lines)
+	charSelect         bool // When true, characters are being selected
+	charSelStartLine   int  // Starting line of character selection
+	charSelStartCol    int  // Starting column of character selection
+	charSelEndLine     int  // Ending line of character selection
+	charSelEndCol      int  // Ending column of character selection
 	// Undo/Redo
 	undoManager       *undo.Manager
 	lastBlockState    *undo.BlockState // State before current edit session
@@ -177,6 +183,67 @@ func (m *Model) clearMultiLineSelection() {
 	m.multiLineSelect = false
 	m.lineSelectionStart = 0
 	m.lineSelectionEnd = 0
+}
+
+// clearCharSelection clears the character selection
+func (m *Model) clearCharSelection() {
+	m.charSelect = false
+	m.charSelStartLine = 0
+	m.charSelStartCol = 0
+	m.charSelEndLine = 0
+	m.charSelEndCol = 0
+}
+
+// clearAllSelections clears both line and character selections
+func (m *Model) clearAllSelections() {
+	m.clearMultiLineSelection()
+	m.clearCharSelection()
+}
+
+// getCharSelectionForLine returns the selection range for a specific line
+// Returns (-1, -1) if line is not part of selection
+func (m *Model) getCharSelectionForLine(line int) (int, int) {
+	if !m.charSelect {
+		return -1, -1
+	}
+
+	// Normalize selection direction
+	startLine, startCol := m.charSelStartLine, m.charSelStartCol
+	endLine, endCol := m.charSelEndLine, m.charSelEndCol
+	if startLine > endLine || (startLine == endLine && startCol > endCol) {
+		startLine, endLine = endLine, startLine
+		startCol, endCol = endCol, startCol
+	}
+
+	// Check if this line is in selection range
+	if line < startLine || line > endLine {
+		return -1, -1
+	}
+
+	blk := m.doc.BlockAt(line)
+	if blk == nil {
+		return -1, -1
+	}
+	lineLen := len([]rune(blk.Content()))
+
+	// Calculate selection range for this line
+	selStart := 0
+	selEnd := lineLen
+
+	if line == startLine {
+		selStart = startCol
+	}
+	if line == endLine {
+		selEnd = endCol
+	}
+
+	if selStart >= selEnd && line != startLine && line != endLine {
+		// Full line selection for middle lines
+		selStart = 0
+		selEnd = lineLen
+	}
+
+	return selStart, selEnd
 }
 
 // getSelectedLineRange returns the start and end lines of multi-line selection (ordered)
@@ -424,6 +491,96 @@ func (m *Model) createBlockFromState(state *undo.BlockState) block.Block {
 	return blk
 }
 
+// deleteCharSelection deletes characters in the character selection
+func (m *Model) deleteCharSelection() tea.Cmd {
+	if !m.charSelect {
+		return nil
+	}
+
+	// Normalize selection direction
+	startLine, startCol := m.charSelStartLine, m.charSelStartCol
+	endLine, endCol := m.charSelEndLine, m.charSelEndCol
+	if startLine > endLine || (startLine == endLine && startCol > endCol) {
+		startLine, endLine = endLine, startLine
+		startCol, endCol = endCol, startCol
+	}
+
+	// Capture states for undo
+	var deletedStates []undo.BlockState
+	for i := startLine; i <= endLine && i < m.doc.BlockCount(); i++ {
+		blk := m.doc.BlockAt(i)
+		if blk != nil {
+			state := undo.CaptureBlockState(blk)
+			if state != nil {
+				deletedStates = append(deletedStates, *state)
+			}
+		}
+	}
+
+	cursorLine := m.doc.CursorLine
+	cursorCol := m.doc.CursorCol
+
+	if startLine == endLine {
+		// Selection within single line - just delete the range
+		blk := m.doc.BlockAt(startLine)
+		if blk != nil {
+			content := []rune(blk.Content())
+			if startCol < len(content) && endCol <= len(content) {
+				newContent := string(content[:startCol]) + string(content[endCol:])
+				blk.SetContent(newContent)
+				// Adjust spans for deletion
+				spans := blk.Spans()
+				for i := endCol - 1; i >= startCol; i-- {
+					spans = spans.DeleteAt(i)
+				}
+				blk.SetSpans(spans)
+			}
+		}
+		m.doc.CursorLine = startLine
+		m.doc.CursorCol = startCol
+	} else {
+		// Multi-line selection
+		// Keep content before selection on first line
+		// Keep content after selection on last line
+		// Delete lines in between
+
+		firstBlock := m.doc.BlockAt(startLine)
+		lastBlock := m.doc.BlockAt(endLine)
+
+		if firstBlock != nil && lastBlock != nil {
+			firstContent := []rune(firstBlock.Content())
+			lastContent := []rune(lastBlock.Content())
+
+			// New content: start of first line + end of last line
+			var newContent string
+			if startCol < len(firstContent) {
+				newContent = string(firstContent[:startCol])
+			}
+			if endCol < len(lastContent) {
+				newContent += string(lastContent[endCol:])
+			}
+
+			firstBlock.SetContent(newContent)
+
+			// Delete lines from end to start+1
+			for i := endLine; i > startLine; i-- {
+				m.doc.RemoveBlock(i)
+			}
+		}
+
+		m.doc.CursorLine = startLine
+		m.doc.CursorCol = startCol
+	}
+
+	// Record for undo
+	if len(deletedStates) > 0 {
+		m.undoManager.RecordMultiDelete(startLine, deletedStates, cursorLine, cursorCol)
+	}
+
+	m.clearCharSelection()
+	return m.markDirty()
+}
+
 // deleteSelectedLines deletes all lines in multi-line selection
 func (m *Model) deleteSelectedLines() tea.Cmd {
 	if !m.multiLineSelect {
@@ -532,13 +689,64 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.doc.CursorLine = m.lineSelectionEnd
 			}
 
+		case "alt+left", "alt+h":
+			// Start or extend character selection leftward
+			m.clearMultiLineSelection()
+			if !m.charSelect {
+				m.charSelect = true
+				m.charSelStartLine = m.doc.CursorLine
+				m.charSelStartCol = m.doc.CursorCol
+				m.charSelEndLine = m.doc.CursorLine
+				m.charSelEndCol = m.doc.CursorCol
+			}
+			// Move selection end left
+			if m.charSelEndCol > 0 {
+				m.charSelEndCol--
+				m.doc.CursorCol = m.charSelEndCol
+			} else if m.charSelEndLine > 0 {
+				// Move to end of previous line
+				m.charSelEndLine--
+				m.doc.CursorLine = m.charSelEndLine
+				prevBlock := m.doc.BlockAt(m.charSelEndLine)
+				if prevBlock != nil {
+					m.charSelEndCol = len([]rune(prevBlock.Content()))
+					m.doc.CursorCol = m.charSelEndCol
+				}
+			}
+
+		case "alt+right", "alt+l":
+			// Start or extend character selection rightward
+			m.clearMultiLineSelection()
+			if !m.charSelect {
+				m.charSelect = true
+				m.charSelStartLine = m.doc.CursorLine
+				m.charSelStartCol = m.doc.CursorCol
+				m.charSelEndLine = m.doc.CursorLine
+				m.charSelEndCol = m.doc.CursorCol
+			}
+			// Move selection end right
+			currentBlock := m.doc.BlockAt(m.charSelEndLine)
+			if currentBlock != nil {
+				lineLen := len([]rune(currentBlock.Content()))
+				if m.charSelEndCol < lineLen {
+					m.charSelEndCol++
+					m.doc.CursorCol = m.charSelEndCol
+				} else if m.charSelEndLine < m.doc.BlockCount()-1 {
+					// Move to start of next line
+					m.charSelEndLine++
+					m.charSelEndCol = 0
+					m.doc.CursorLine = m.charSelEndLine
+					m.doc.CursorCol = 0
+				}
+			}
+
 		case "up":
 			if m.highlightMode {
 				// In highlight mode, up/down exits without applying
 				m.highlightMode = false
 			}
 			m.recordBlockModification() // Commit any pending changes
-			m.clearMultiLineSelection()
+			m.clearAllSelections()
 			m.doc.MoveUp()
 
 		case "down":
@@ -547,19 +755,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.highlightMode = false
 			}
 			m.recordBlockModification() // Commit any pending changes
-			m.clearMultiLineSelection()
+			m.clearAllSelections()
 			m.doc.MoveDown()
 
 		case "left":
-			m.clearMultiLineSelection()
+			m.clearAllSelections()
 			m.doc.MoveLeft()
 
 		case "right":
-			m.clearMultiLineSelection()
+			m.clearAllSelections()
 			m.doc.MoveRight()
 
 		case "home", "ctrl+a":
-			m.clearMultiLineSelection()
+			m.clearAllSelections()
 			if m.highlightMode {
 				// Extend selection to start of line
 				m.doc.MoveToLineStart()
@@ -568,7 +776,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "end", "ctrl+e":
-			m.clearMultiLineSelection()
+			m.clearAllSelections()
 			if m.highlightMode {
 				// Extend selection to end of line
 				m.doc.MoveToLineEnd()
@@ -601,6 +809,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "backspace":
 			if m.multiLineSelect {
 				cmd = m.deleteSelectedLines()
+			} else if m.charSelect {
+				cmd = m.deleteCharSelection()
 			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
@@ -617,6 +827,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "delete":
 			if m.multiLineSelect {
 				cmd = m.deleteSelectedLines()
+			} else if m.charSelect {
+				cmd = m.deleteCharSelection()
 			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
@@ -630,6 +842,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if m.multiLineSelect {
 				cmd = m.deleteSelectedLines()
+			} else if m.charSelect {
+				cmd = m.deleteCharSelection()
 			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
@@ -638,22 +852,28 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case " ":
-			m.clearMultiLineSelection()
-			if m.highlightMode {
-				cmd = m.applyHighlightAndExit()
+			if m.charSelect {
+				cmd = m.deleteCharSelection()
 			} else {
-				m.captureCurrentBlockState()
-				// Insert space character with formatting
-				m.doc.InsertCharWithFormat(' ', m.currentStyle())
-				// Check for block type triggers
-				m.checkBlockTriggers()
-				cmd = m.markDirty()
+				m.clearAllSelections()
+				if m.highlightMode {
+					cmd = m.applyHighlightAndExit()
+				} else {
+					m.captureCurrentBlockState()
+					// Insert space character with formatting
+					m.doc.InsertCharWithFormat(' ', m.currentStyle())
+					// Check for block type triggers
+					m.checkBlockTriggers()
+					cmd = m.markDirty()
+				}
 			}
 
 		case "esc":
 			// Escape key exits selection modes without applying
 			if m.multiLineSelect {
 				m.clearMultiLineSelection()
+			} else if m.charSelect {
+				m.clearCharSelection()
 			} else if m.highlightMode {
 				m.exitHighlightMode()
 			}
@@ -661,16 +881,27 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		default:
 			// Handle regular character input with formatting
 			if len(msg.Runes) > 0 {
-				m.clearMultiLineSelection()
-				if m.highlightMode {
-					cmd = m.applyHighlightAndExit()
-				} else {
+				if m.charSelect {
+					// Delete selection then insert character
+					m.deleteCharSelection()
 					m.captureCurrentBlockState()
 					style := m.currentStyle()
 					for _, r := range msg.Runes {
 						m.doc.InsertCharWithFormat(r, style)
 					}
 					cmd = m.markDirty()
+				} else {
+					m.clearAllSelections()
+					if m.highlightMode {
+						cmd = m.applyHighlightAndExit()
+					} else {
+						m.captureCurrentBlockState()
+						style := m.currentStyle()
+						for _, r := range msg.Runes {
+							m.doc.InsertCharWithFormat(r, style)
+						}
+						cmd = m.markDirty()
+					}
 				}
 			}
 		}
@@ -913,11 +1144,15 @@ func (m Model) View() string {
 		blk := m.doc.BlockAt(i)
 		isFocused := i == m.doc.CursorLine
 
-		// Calculate selection range for this block (within-line highlight)
+		// Calculate selection range for this block
 		selStart, selEnd := -1, -1
 		if m.highlightMode && isFocused {
+			// Highlight mode (for applying highlight formatting)
 			selStart = m.selectionStart
 			selEnd = m.doc.CursorCol
+		} else if m.charSelect {
+			// Character selection mode
+			selStart, selEnd = m.getCharSelectionForLine(i)
 		}
 
 		// Check if this line is part of multi-line selection
@@ -963,7 +1198,10 @@ func (m Model) View() string {
 	if m.multiLineSelect {
 		start, end := m.getSelectedLineRange()
 		count := end - start + 1
-		formatIndicators = append(formatIndicators, styles.SelectionIndicator.Render(fmt.Sprintf("SEL:%d", count)))
+		formatIndicators = append(formatIndicators, styles.SelectionIndicator.Render(fmt.Sprintf("LINES:%d", count)))
+	}
+	if m.charSelect {
+		formatIndicators = append(formatIndicators, styles.SelectionIndicator.Render("SELECT"))
 	}
 	if len(formatIndicators) > 0 {
 		b.WriteString("  ")
@@ -976,6 +1214,8 @@ func (m Model) View() string {
 	var helpText string
 	if m.multiLineSelect {
 		helpText = "LINE SELECT: ⌥↑/↓: Extend • Backspace/Del: Delete lines • Esc: Cancel"
+	} else if m.charSelect {
+		helpText = "CHAR SELECT: ⌥←/→: Extend • Backspace/Del: Delete • Esc: Cancel"
 	} else if m.highlightMode {
 		helpText = "HIGHLIGHT MODE: ←/→: Select • Enter/Space: Apply • Esc: Cancel"
 	} else {
