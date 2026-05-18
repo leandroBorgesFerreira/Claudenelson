@@ -15,6 +15,7 @@ import (
 	"claudenelson/editor/format"
 	"claudenelson/editor/persistence"
 	"claudenelson/editor/styles"
+	"claudenelson/editor/undo"
 )
 
 const saveDelay = 500 * time.Millisecond
@@ -54,9 +55,14 @@ type Model struct {
 	highlightMode   bool // When true, arrow keys select text for highlighting
 	selectionStart  int  // Starting position of selection
 	// Multi-line selection mode
-	multiLineSelect   bool // When true, lines are being selected
+	multiLineSelect    bool // When true, lines are being selected
 	lineSelectionStart int  // Starting line of multi-line selection
 	lineSelectionEnd   int  // Ending line of multi-line selection (can be before or after start)
+	// Undo/Redo
+	undoManager       *undo.Manager
+	lastBlockState    *undo.BlockState // State before current edit session
+	lastBlockIndex    int              // Index of block being edited
+	pendingUndoRecord bool             // Whether we need to record an undo entry
 }
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
@@ -102,13 +108,15 @@ func New(savePath string) Model {
 	}
 
 	return Model{
-		doc:      doc,
-		factory:  f,
-		registry: r,
-		width:    80,
-		height:   24,
-		savePath: savePath,
-		dirty:    false,
+		doc:            doc,
+		factory:        f,
+		registry:       r,
+		width:          80,
+		height:         24,
+		savePath:       savePath,
+		dirty:          false,
+		undoManager:    undo.NewManager(100), // Keep up to 100 undo entries
+		lastBlockIndex: -1,
 	}
 }
 
@@ -189,6 +197,233 @@ func (m *Model) isLineSelected(line int) bool {
 	return line >= start && line <= end
 }
 
+// captureCurrentBlockState captures the state of the current block for undo
+func (m *Model) captureCurrentBlockState() {
+	if m.doc.CursorLine != m.lastBlockIndex || m.lastBlockState == nil {
+		m.lastBlockIndex = m.doc.CursorLine
+		m.lastBlockState = undo.CaptureBlockState(m.doc.CurrentBlock())
+		m.pendingUndoRecord = true
+	}
+}
+
+// recordBlockModification records the current block modification if changed
+func (m *Model) recordBlockModification() {
+	if !m.pendingUndoRecord || m.lastBlockState == nil {
+		return
+	}
+
+	currentBlock := m.doc.CurrentBlock()
+	if currentBlock == nil {
+		return
+	}
+
+	newState := undo.CaptureBlockState(currentBlock)
+
+	// Only record if content actually changed
+	if m.lastBlockState.Content != newState.Content ||
+		!spansEqual(m.lastBlockState.Spans, newState.Spans) {
+		m.undoManager.RecordModify(
+			m.lastBlockIndex,
+			m.lastBlockState,
+			newState,
+			m.doc.CursorLine,
+			m.doc.CursorCol,
+		)
+	}
+
+	m.lastBlockState = nil
+	m.pendingUndoRecord = false
+}
+
+// spansEqual checks if two span slices are equal
+func spansEqual(a, b format.Spans) bool {
+	if len(a) != len(b) {
+		return false
+	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
+}
+
+// recordBlockAdd records a block addition for undo
+func (m *Model) recordBlockAdd(index int) {
+	blk := m.doc.BlockAt(index)
+	if blk == nil {
+		return
+	}
+	m.undoManager.RecordAdd(
+		index,
+		undo.CaptureBlockState(blk),
+		m.doc.CursorLine,
+		m.doc.CursorCol,
+	)
+}
+
+// recordBlockDelete records a block deletion for undo
+func (m *Model) recordBlockDelete(index int, state *undo.BlockState) {
+	m.undoManager.RecordDelete(
+		index,
+		state,
+		m.doc.CursorLine,
+		m.doc.CursorCol,
+	)
+}
+
+// performUndo undoes the last operation
+func (m *Model) performUndo() tea.Cmd {
+	// First, commit any pending modification
+	m.recordBlockModification()
+
+	op, ok := m.undoManager.Undo()
+	if !ok {
+		return nil
+	}
+
+	switch op.Type {
+	case undo.OpModify:
+		// Restore the old block state
+		if op.OldState != nil && op.Index < m.doc.BlockCount() {
+			m.restoreBlockState(op.Index, op.OldState)
+		}
+	case undo.OpAdd:
+		// Remove the added block
+		if op.Index < m.doc.BlockCount() {
+			m.doc.RemoveBlock(op.Index)
+		}
+	case undo.OpDelete:
+		// Re-add the deleted block
+		if op.OldState != nil {
+			blk := m.createBlockFromState(op.OldState)
+			if op.Index >= m.doc.BlockCount() {
+				m.doc.AddBlock(blk)
+			} else {
+				m.doc.InsertBlock(op.Index, blk)
+			}
+		}
+	case undo.OpMultiDelete:
+		// Re-add all deleted blocks
+		for i, state := range op.OldBlocks {
+			blk := m.createBlockFromState(&state)
+			insertIdx := op.StartIndex + i
+			if insertIdx >= m.doc.BlockCount() {
+				m.doc.AddBlock(blk)
+			} else {
+				m.doc.InsertBlock(insertIdx, blk)
+			}
+		}
+	}
+
+	// Restore cursor position
+	m.doc.CursorLine = op.CursorLine
+	m.doc.CursorCol = op.CursorCol
+	if m.doc.CursorLine >= m.doc.BlockCount() {
+		m.doc.CursorLine = m.doc.BlockCount() - 1
+	}
+	if m.doc.CursorLine < 0 {
+		m.doc.CursorLine = 0
+	}
+
+	// Reset tracking state
+	m.lastBlockState = nil
+	m.lastBlockIndex = -1
+	m.pendingUndoRecord = false
+
+	return m.markDirty()
+}
+
+// performRedo redoes the last undone operation
+func (m *Model) performRedo() tea.Cmd {
+	op, ok := m.undoManager.Redo()
+	if !ok {
+		return nil
+	}
+
+	switch op.Type {
+	case undo.OpModify:
+		// Apply the new block state
+		if op.NewState != nil && op.Index < m.doc.BlockCount() {
+			m.restoreBlockState(op.Index, op.NewState)
+		}
+	case undo.OpAdd:
+		// Re-add the block
+		if op.NewState != nil {
+			blk := m.createBlockFromState(op.NewState)
+			if op.Index >= m.doc.BlockCount() {
+				m.doc.AddBlock(blk)
+			} else {
+				m.doc.InsertBlock(op.Index, blk)
+			}
+		}
+	case undo.OpDelete:
+		// Remove the block again
+		if op.Index < m.doc.BlockCount() {
+			m.doc.RemoveBlock(op.Index)
+		}
+	case undo.OpMultiDelete:
+		// Remove all the blocks again
+		for i := len(op.OldBlocks) - 1; i >= 0; i-- {
+			idx := op.StartIndex + i
+			if idx < m.doc.BlockCount() {
+				m.doc.RemoveBlock(idx)
+			}
+		}
+	}
+
+	// Reset tracking state
+	m.lastBlockState = nil
+	m.lastBlockIndex = -1
+	m.pendingUndoRecord = false
+
+	return m.markDirty()
+}
+
+// restoreBlockState restores a block to a saved state
+func (m *Model) restoreBlockState(index int, state *undo.BlockState) {
+	blk := m.doc.BlockAt(index)
+	if blk == nil {
+		return
+	}
+	blk.SetContent(state.Content)
+	blk.SetSpans(state.Spans)
+	if state.Checked != nil {
+		if cb, ok := blk.(*block.CheckboxBlock); ok {
+			cb.SetChecked(*state.Checked)
+		}
+	}
+}
+
+// createBlockFromState creates a new block from a saved state
+func (m *Model) createBlockFromState(state *undo.BlockState) block.Block {
+	var blk block.Block
+	switch state.Type {
+	case block.TypeH1:
+		blk = m.factory.CreateHeading(state.Content, 1)
+	case block.TypeH2:
+		blk = m.factory.CreateHeading(state.Content, 2)
+	case block.TypeH3:
+		blk = m.factory.CreateHeading(state.Content, 3)
+	case block.TypeH4:
+		blk = m.factory.CreateHeading(state.Content, 4)
+	case block.TypeListItem:
+		blk = m.factory.CreateListItemWithSpans(state.Content, state.Spans)
+	case block.TypeCheckboxItem:
+		checked := false
+		if state.Checked != nil {
+			checked = *state.Checked
+		}
+		blk = m.factory.CreateCheckboxWithSpans(state.Content, checked, state.Spans)
+	default:
+		blk = m.factory.CreateTextWithSpans(state.Content, state.Spans)
+	}
+	if state.Spans != nil {
+		blk.SetSpans(state.Spans)
+	}
+	return blk
+}
+
 // deleteSelectedLines deletes all lines in multi-line selection
 func (m *Model) deleteSelectedLines() tea.Cmd {
 	if !m.multiLineSelect {
@@ -197,6 +432,21 @@ func (m *Model) deleteSelectedLines() tea.Cmd {
 
 	start, end := m.getSelectedLineRange()
 	count := end - start + 1
+
+	// Capture states of all blocks to be deleted for undo
+	var deletedStates []undo.BlockState
+	for i := start; i <= end && i < m.doc.BlockCount(); i++ {
+		blk := m.doc.BlockAt(i)
+		if blk != nil {
+			state := undo.CaptureBlockState(blk)
+			if state != nil {
+				deletedStates = append(deletedStates, *state)
+			}
+		}
+	}
+
+	cursorLine := m.doc.CursorLine
+	cursorCol := m.doc.CursorCol
 
 	// Don't delete all blocks - keep at least one
 	if count >= m.doc.BlockCount() {
@@ -220,6 +470,11 @@ func (m *Model) deleteSelectedLines() tea.Cmd {
 			m.doc.CursorLine = start
 		}
 		m.doc.CursorCol = 0
+	}
+
+	// Record multi-delete for undo
+	if len(deletedStates) > 0 {
+		m.undoManager.RecordMultiDelete(start, deletedStates, cursorLine, cursorCol)
 	}
 
 	m.clearMultiLineSelection()
@@ -282,6 +537,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// In highlight mode, up/down exits without applying
 				m.highlightMode = false
 			}
+			m.recordBlockModification() // Commit any pending changes
 			m.clearMultiLineSelection()
 			m.doc.MoveUp()
 
@@ -290,6 +546,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				// In highlight mode, up/down exits without applying
 				m.highlightMode = false
 			}
+			m.recordBlockModification() // Commit any pending changes
 			m.clearMultiLineSelection()
 			m.doc.MoveDown()
 
@@ -333,12 +590,21 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.highlightMode = true
 			m.selectionStart = m.doc.CursorCol
 
+		case "ctrl+z":
+			// Undo
+			cmd = m.performUndo()
+
+		case "ctrl+y", "ctrl+shift+z":
+			// Redo
+			cmd = m.performRedo()
+
 		case "backspace":
 			if m.multiLineSelect {
 				cmd = m.deleteSelectedLines()
 			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
+				m.captureCurrentBlockState()
 				if !m.doc.DeleteCharBackward() {
 					// At start of line - try to convert special blocks to text first
 					if !m.convertToTextBlock() {
@@ -354,6 +620,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			} else if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
+				m.captureCurrentBlockState()
 				if !m.doc.DeleteCharForward() {
 					m.mergeWithNextBlock()
 				}
@@ -375,6 +642,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.highlightMode {
 				cmd = m.applyHighlightAndExit()
 			} else {
+				m.captureCurrentBlockState()
 				// Insert space character with formatting
 				m.doc.InsertCharWithFormat(' ', m.currentStyle())
 				// Check for block type triggers
@@ -397,6 +665,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.highlightMode {
 					cmd = m.applyHighlightAndExit()
 				} else {
+					m.captureCurrentBlockState()
 					style := m.currentStyle()
 					for _, r := range msg.Runes {
 						m.doc.InsertCharWithFormat(r, style)
@@ -434,6 +703,11 @@ func (m *Model) handleEnter() {
 		return
 	}
 
+	// Capture state before split for undo
+	oldState := undo.CaptureBlockState(currentBlock)
+	cursorLine := m.doc.CursorLine
+	cursorCol := m.doc.CursorCol
+
 	// Get text and spans after cursor
 	rightPart, rightSpans := m.doc.SplitBlockAtCursor()
 
@@ -451,9 +725,21 @@ func (m *Model) handleEnter() {
 	// Insert new block after current
 	m.doc.InsertBlock(m.doc.CursorLine+1, newBlock)
 
+	// Record the modification of current block
+	newState := undo.CaptureBlockState(currentBlock)
+	m.undoManager.RecordModify(cursorLine, oldState, newState, cursorLine, cursorCol)
+
+	// Record the addition of the new block
+	m.recordBlockAdd(m.doc.CursorLine + 1)
+
 	// Move cursor to start of new block
 	m.doc.MoveDown()
 	m.doc.CursorCol = 0
+
+	// Reset undo tracking state
+	m.lastBlockState = nil
+	m.lastBlockIndex = -1
+	m.pendingUndoRecord = false
 }
 
 // checkBlockTriggers checks if the current content matches a block trigger pattern
@@ -693,7 +979,7 @@ func (m Model) View() string {
 	} else if m.highlightMode {
 		helpText = "HIGHLIGHT MODE: ←/→: Select • Enter/Space: Apply • Esc: Cancel"
 	} else {
-		helpText = "←/→: Cursor • ↑/↓: Block • ⌥↑/↓: Select lines • ^B/I/U: Format • ^H: Highlight • ^C: Quit"
+		helpText = "←/→: Cursor • ↑/↓: Block • ^Z: Undo • ^Y: Redo • ^B/I/U/H: Format • ^C: Quit"
 	}
 	help := styles.HelpStyle.Render(helpText)
 	b.WriteString(help)

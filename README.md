@@ -98,6 +98,14 @@ Type these at the start of a line and press `Space`:
 | `[]` | Unchecked checkbox |
 | `[x]` | Checked checkbox |
 
+### Undo/Redo
+| Key | Action |
+|-----|--------|
+| `Ctrl+Z` | Undo last change |
+| `Ctrl+Y` | Redo last undone change |
+
+The undo system efficiently stores only the changed blocks (not the entire document) and supports up to 100 undo levels.
+
 ### Other
 | Key | Action |
 |-----|--------|
