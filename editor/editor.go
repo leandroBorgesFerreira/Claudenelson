@@ -1323,6 +1323,12 @@ func (m Model) View() string {
 		b.WriteString("\n")
 	}
 
+	// Line count indicator
+	lineInfo := fmt.Sprintf("Line %d/%d", m.doc.CursorLine+1, m.doc.BlockCount())
+	b.WriteString("  ")
+	b.WriteString(styles.HelpStyle.Render(lineInfo))
+	b.WriteString("\n")
+
 	// Help text
 	b.WriteString("\n")
 	var helpText string
