@@ -9,6 +9,46 @@ import (
 	"claudenelson/editor/format"
 )
 
+// ActionType represents what action the drawer wants the editor to take
+type ActionType int
+
+const (
+	ActionNone         ActionType = iota
+	ActionSetCursor               // Set cursor to position
+	ActionSelectWord              // Select the word at position
+	ActionSelectLine              // Select the entire line
+	ActionToggleCheck             // Toggle checkbox state
+	ActionStartDrag               // Start drag selection
+	ActionExtendDrag              // Extend drag selection
+	ActionEndDrag                 // End drag selection
+)
+
+// Action represents an action returned by a drawer's mouse handler
+type Action struct {
+	Type      ActionType
+	CursorCol int // Cursor column position
+	SelStart  int // Selection start (for word/line selection)
+	SelEnd    int // Selection end (for word/line selection)
+}
+
+// MouseEventType represents the type of mouse event
+type MouseEventType int
+
+const (
+	MousePress MouseEventType = iota
+	MouseRelease
+	MouseMotion
+)
+
+// MouseContext contains mouse event information passed to a drawer
+type MouseContext struct {
+	X          int            // X position relative to block content start (after prefix)
+	RawX       int            // Raw X position (for prefix detection)
+	EventType  MouseEventType // Press, Release, or Motion
+	ClickCount int            // 1=single, 2=double, 3=triple click
+	IsDragging bool           // Whether currently dragging
+}
+
 // DrawContext contains context information for drawing a block
 type DrawContext struct {
 	Width          int
@@ -24,6 +64,8 @@ type DrawContext struct {
 // Drawer is the interface for rendering blocks
 type Drawer interface {
 	Draw(b block.Block, ctx DrawContext) string
+	HandleMouse(b block.Block, ctx MouseContext) Action
+	PrefixWidth() int // Returns the width of the block's prefix (bullet, checkbox, etc.)
 	SupportedType() block.BlockType
 }
 
@@ -54,6 +96,26 @@ func (r *DrawerRegistry) Draw(b block.Block, ctx DrawContext) string {
 		return d.Draw(b, ctx)
 	}
 	return b.Content()
+}
+
+// HandleMouse delegates mouse handling to the appropriate drawer
+func (r *DrawerRegistry) HandleMouse(b block.Block, ctx MouseContext) Action {
+	if d, ok := r.drawers[b.Type()]; ok {
+		return d.HandleMouse(b, ctx)
+	}
+	// Fallback to text drawer if no specific drawer found
+	if d, ok := r.drawers[block.TypeText]; ok {
+		return d.HandleMouse(b, ctx)
+	}
+	return Action{Type: ActionNone}
+}
+
+// PrefixWidth returns the prefix width for a block type
+func (r *DrawerRegistry) PrefixWidth(b block.Block) int {
+	if d, ok := r.drawers[b.Type()]; ok {
+		return d.PrefixWidth()
+	}
+	return 0
 }
 
 // RegisterAll registers all standard drawers

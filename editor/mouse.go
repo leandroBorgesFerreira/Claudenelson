@@ -1,6 +1,18 @@
 package editor
 
-import "claudenelson/editor/block"
+import (
+	"time"
+
+	tea "github.com/charmbracelet/bubbletea"
+
+	"claudenelson/editor/block"
+	"claudenelson/editor/drawer"
+)
+
+const (
+	handleWidth          = 3 // "|| " = 3 characters
+	doubleClickThreshold = 500 * time.Millisecond
+)
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
 func (m Model) getBlockAtY(y int) int {
@@ -26,107 +38,145 @@ func (m Model) getBlockAtY(y int) int {
 	return -1
 }
 
-// getColumnAtX returns the column index at the given X position for a block
-func (m Model) getColumnAtX(blockIndex, x int) int {
-	if blockIndex < 0 || blockIndex >= m.doc.BlockCount() {
-		return 0
-	}
-	blk := m.doc.BlockAt(blockIndex)
-	if blk == nil {
-		return 0
-	}
-
-	// Account for selection handle "|| " (3 chars) and block prefix
-	prefix := m.getBlockPrefix(blk)
-	prefixLen := len([]rune(prefix)) // Use rune length for display width
-	handleLen := 3                   // "|| " = 3 characters
-
-	// Calculate column from x position
-	col := x - handleLen - prefixLen
-	if col < 0 {
-		col = 0
-	}
-
-	// Clamp to content length
-	content := []rune(blk.Content())
-	if col > len(content) {
-		col = len(content)
-	}
-
-	return col
-}
-
 // isClickOnHandle returns true if the X position is on the "||" handle
 func (m Model) isClickOnHandle(x int) bool {
 	return x < 2 // "||" is at positions 0 and 1
 }
 
-// getBlockPrefix returns the prefix string for a block type (bullet, checkbox, etc.)
-func (m Model) getBlockPrefix(blk block.Block) string {
-	switch blk.Type() {
-	case block.TypeListItem:
-		return "• "
-	case block.TypeCheckboxItem:
-		if cb, ok := blk.(*block.CheckboxBlock); ok {
-			if cb.IsChecked() {
-				return "☑ "
-			}
-			return "☐ "
-		}
-		return "☐ "
+// handleBlockMouse processes mouse events by delegating to the block's drawer
+func (m *Model) handleBlockMouse(blk block.Block, blockIndex int, msg tea.MouseMsg) tea.Cmd {
+	// Convert tea.MouseMsg to drawer.MouseContext
+	var eventType drawer.MouseEventType
+	switch msg.Action {
+	case tea.MouseActionPress:
+		eventType = drawer.MousePress
+	case tea.MouseActionRelease:
+		eventType = drawer.MouseRelease
+	case tea.MouseActionMotion:
+		eventType = drawer.MouseMotion
 	default:
-		return ""
+		return nil
 	}
+
+	// Only handle left button clicks
+	if msg.Button != tea.MouseButtonLeft && msg.Action != tea.MouseActionMotion {
+		return nil
+	}
+
+	// Check if click is on the handle first
+	if msg.Action == tea.MouseActionPress && m.isClickOnHandle(msg.X) {
+		m.doc.SetCursor(blockIndex)
+		m.clearCharSelection()
+		m.toggleLineHandleSelection(blockIndex)
+		return nil
+	}
+
+	// Track click count for double/triple clicks
+	now := time.Now()
+	if msg.Action == tea.MouseActionPress {
+		if now.Sub(m.lastClickTime) < doubleClickThreshold && blockIndex == m.lastClickLine {
+			m.clickCount++
+			if m.clickCount > 3 {
+				m.clickCount = 3
+			}
+		} else {
+			m.clickCount = 1
+		}
+		m.lastClickTime = now
+		m.lastClickLine = blockIndex
+	}
+
+	// Calculate X position relative to content (after handle and prefix)
+	prefixWidth := m.registry.PrefixWidth(blk)
+	rawX := msg.X - handleWidth          // X relative to block start (includes prefix)
+	contentX := rawX - prefixWidth       // X relative to content start
+
+	// Build mouse context for the drawer
+	mouseCtx := drawer.MouseContext{
+		X:          contentX,
+		RawX:       rawX,
+		EventType:  eventType,
+		ClickCount: m.clickCount,
+		IsDragging: m.isDragging,
+	}
+
+	// Delegate to the drawer
+	action := m.registry.HandleMouse(blk, mouseCtx)
+
+	// Process the action returned by the drawer
+	return m.processDrawerAction(action, blk, blockIndex)
 }
 
-// getWordBoundsAt returns the start and end column of the word at the given position
-func (m Model) getWordBoundsAt(line, col int) (start, end int) {
-	if line < 0 || line >= m.doc.BlockCount() {
-		return 0, 0
-	}
-	blk := m.doc.BlockAt(line)
-	if blk == nil {
-		return 0, 0
+// processDrawerAction applies the action returned by a drawer
+func (m *Model) processDrawerAction(action drawer.Action, blk block.Block, blockIndex int) tea.Cmd {
+	switch action.Type {
+	case drawer.ActionNone:
+		return nil
+
+	case drawer.ActionSetCursor:
+		m.clearAllSelections()
+		m.doc.SetCursor(blockIndex)
+		m.doc.CursorCol = action.CursorCol
+		m.ensureCursorVisible()
+
+	case drawer.ActionStartDrag:
+		m.clearAllSelections()
+		m.doc.SetCursor(blockIndex)
+		m.doc.CursorCol = action.CursorCol
+		m.isDragging = true
+		m.charSelect = true
+		m.charSelStartLine = blockIndex
+		m.charSelStartCol = action.SelStart
+		m.charSelEndLine = blockIndex
+		m.charSelEndCol = action.SelEnd
+		m.ensureCursorVisible()
+
+	case drawer.ActionExtendDrag:
+		if m.isDragging && blockIndex == m.charSelStartLine {
+			m.charSelEndLine = blockIndex
+			m.charSelEndCol = action.CursorCol
+			m.doc.CursorCol = action.CursorCol
+		}
+
+	case drawer.ActionEndDrag:
+		if m.isDragging {
+			m.isDragging = false
+			// If no actual selection was made, clear it
+			if m.charSelStartLine == m.charSelEndLine && m.charSelStartCol == m.charSelEndCol {
+				m.clearCharSelection()
+			}
+		}
+
+	case drawer.ActionSelectWord:
+		m.isDragging = false
+		m.doc.SetCursor(blockIndex)
+		m.charSelect = true
+		m.charSelStartLine = blockIndex
+		m.charSelStartCol = action.SelStart
+		m.charSelEndLine = blockIndex
+		m.charSelEndCol = action.SelEnd
+		m.doc.CursorCol = action.CursorCol
+		m.ensureCursorVisible()
+
+	case drawer.ActionSelectLine:
+		m.isDragging = false
+		m.doc.SetCursor(blockIndex)
+		m.charSelect = true
+		m.charSelStartLine = blockIndex
+		m.charSelStartCol = action.SelStart
+		m.charSelEndLine = blockIndex
+		m.charSelEndCol = action.SelEnd
+		m.doc.CursorCol = action.CursorCol
+		m.ensureCursorVisible()
+
+	case drawer.ActionToggleCheck:
+		if cb, ok := blk.(*block.CheckboxBlock); ok {
+			cb.Toggle()
+			m.isDragging = false
+			m.clearCharSelection()
+			return m.markDirty()
+		}
 	}
 
-	content := []rune(blk.Content())
-	if len(content) == 0 {
-		return 0, 0
-	}
-
-	// Clamp column to valid range
-	if col < 0 {
-		col = 0
-	}
-	if col >= len(content) {
-		col = len(content) - 1
-	}
-	if col < 0 {
-		return 0, 0
-	}
-
-	// Check if we're on a word character
-	isWordChar := func(r rune) bool {
-		return (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') ||
-			(r >= '0' && r <= '9') || r == '_'
-	}
-
-	// If not on a word character, just select the single character
-	if !isWordChar(content[col]) {
-		return col, col + 1
-	}
-
-	// Find start of word
-	start = col
-	for start > 0 && isWordChar(content[start-1]) {
-		start--
-	}
-
-	// Find end of word
-	end = col
-	for end < len(content) && isWordChar(content[end]) {
-		end++
-	}
-
-	return start, end
+	return nil
 }

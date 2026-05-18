@@ -8,7 +8,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"claudenelson/editor/block"
 	"claudenelson/editor/document"
 	"claudenelson/editor/drawer"
 	"claudenelson/editor/factory"
@@ -23,18 +22,7 @@ const saveDelay = 500 * time.Millisecond
 type saveTickMsg time.Time
 
 // Sample document content in markdown-like format
-var sampleContent = `# Welcome to the Block Editor
-This is a Notion-like block-based editor.
-## Features
-- Text blocks for paragraphs
-- Headings (H1 through H4)
-- Checkbox/todo items
-### Todo List
-[x] Implement block rendering
-[x] Add navigation with arrow keys
-[] Add editing capabilities
-#### Navigation
-Use Up/Down arrows to move between blocks.`
+var sampleContent = `# Start Writing`
 
 // Model represents the editor state
 type Model struct {
@@ -461,116 +449,18 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ensureCursorVisible()
 
 	case tea.MouseMsg:
-		// Always track hovered line for handle visibility (regardless of button)
-		if msg.Action == tea.MouseActionMotion {
-			blockIndex := m.getBlockAtY(msg.Y)
-			m.hoveredLine = blockIndex
+		blockIndex := m.getBlockAtY(msg.Y)
 
-			// Drag to extend selection (only within same line for now)
-			if m.isDragging && msg.Button == tea.MouseButtonLeft {
-				if blockIndex >= 0 && blockIndex == m.charSelStartLine {
-					col := m.getColumnAtX(blockIndex, msg.X)
-					m.charSelEndLine = blockIndex
-					m.charSelEndCol = col
-					m.doc.CursorCol = col
-				}
-			}
+		// Always track hovered line for handle visibility
+		if msg.Action == tea.MouseActionMotion {
+			m.hoveredLine = blockIndex
 		}
 
-		if msg.Button == tea.MouseButtonLeft {
-			switch msg.Action {
-			case tea.MouseActionPress:
-				blockIndex := m.getBlockAtY(msg.Y)
-				if blockIndex >= 0 {
-					col := m.getColumnAtX(blockIndex, msg.X)
-					now := time.Now()
-
-					// Detect multi-click (within 500ms and same position)
-					const doubleClickThreshold = 500 * time.Millisecond
-					if now.Sub(m.lastClickTime) < doubleClickThreshold &&
-						blockIndex == m.lastClickLine {
-						m.clickCount++
-					} else {
-						m.clickCount = 1
-					}
-
-					// Update click tracking
-					m.lastClickTime = now
-					m.lastClickLine = blockIndex
-					m.lastClickCol = col
-
-					switch m.clickCount {
-					case 1:
-						// Single click
-						m.doc.SetCursor(blockIndex)
-
-						// Check if click is on the "||" handle
-						if m.isClickOnHandle(msg.X) {
-							// Toggle line selection (allows multiple lines)
-							m.clearCharSelection() // Clear drag selection but keep handle selections
-							m.toggleLineHandleSelection(blockIndex)
-						} else {
-							m.clearAllSelections()
-							m.doc.CursorCol = col
-							// Start drag selection
-							m.isDragging = true
-							m.charSelect = true
-							m.charSelStartLine = blockIndex
-							m.charSelStartCol = col
-							m.charSelEndLine = blockIndex
-							m.charSelEndCol = col
-							// Toggle checkbox if clicked on checkbox area
-							if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
-								if msg.X < 6 { // Adjusted for handle
-									cb.Toggle()
-									m.isDragging = false
-									m.clearCharSelection()
-									cmd = m.markDirty()
-								}
-							}
-						}
-					case 2:
-						// Double click: select word
-						m.isDragging = false
-						m.doc.SetCursor(blockIndex)
-						start, end := m.getWordBoundsAt(blockIndex, col)
-						if start != end {
-							m.charSelect = true
-							m.charSelStartLine = blockIndex
-							m.charSelStartCol = start
-							m.charSelEndLine = blockIndex
-							m.charSelEndCol = end
-							m.doc.CursorCol = end
-						}
-					default:
-						// Triple click (or more): select whole line
-						m.isDragging = false
-						m.clickCount = 3 // Cap at 3
-						m.doc.SetCursor(blockIndex)
-						blk := m.doc.BlockAt(blockIndex)
-						if blk != nil {
-							content := []rune(blk.Content())
-							m.charSelect = true
-							m.charSelStartLine = blockIndex
-							m.charSelStartCol = 0
-							m.charSelEndLine = blockIndex
-							m.charSelEndCol = len(content)
-							m.doc.CursorCol = len(content)
-						}
-					}
-					m.ensureCursorVisible()
-				}
-
-			case tea.MouseActionRelease:
-				// End drag
-				if m.isDragging {
-					m.isDragging = false
-					// If no actual selection was made (start == end), clear selection
-					if m.charSelStartLine == m.charSelEndLine &&
-						m.charSelStartCol == m.charSelEndCol {
-						m.clearCharSelection()
-					}
-				}
+		// Delegate mouse handling to the appropriate drawer
+		if blockIndex >= 0 {
+			blk := m.doc.BlockAt(blockIndex)
+			if blk != nil {
+				cmd = m.handleBlockMouse(blk, blockIndex, msg)
 			}
 		}
 	}
