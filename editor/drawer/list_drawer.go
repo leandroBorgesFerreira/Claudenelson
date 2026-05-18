@@ -14,6 +14,9 @@ const listPrefixWidth = 2 // "• " = 2 characters (bullet + space)
 
 // Draw renders a list item block with a bullet prefix
 func (d *ListDrawer) Draw(b block.Block, ctx DrawContext) string {
+	// Render handle first
+	handle := RenderHandle(ctx)
+
 	content := b.Content()
 	spans := b.Spans()
 
@@ -33,7 +36,7 @@ func (d *ListDrawer) Draw(b block.Block, ctx DrawContext) string {
 		styledContent = RenderFormattedContentWithSelection(content, spans, styles.ListContentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
 
-	return prefix + styledContent
+	return handle + prefix + styledContent
 }
 
 // HandleMouse handles mouse events for list blocks

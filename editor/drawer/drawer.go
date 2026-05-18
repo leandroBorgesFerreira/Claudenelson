@@ -51,15 +51,42 @@ type MouseContext struct {
 
 // DrawContext contains context information for drawing a block
 type DrawContext struct {
-	Width          int
-	IsFocused      bool
-	CursorPos      int
-	LineNumber     int
-	ShowCursor     bool
-	SelectionStart int  // -1 if no selection (within line)
-	SelectionEnd   int  // -1 if no selection (within line)
-	LineSelected   bool // True if entire line is selected (multi-line selection)
+	Width            int
+	IsFocused        bool
+	CursorPos        int
+	LineNumber       int
+	ShowCursor       bool
+	SelectionStart   int  // -1 if no selection (within line)
+	SelectionEnd     int  // -1 if no selection (within line)
+	LineSelected     bool // True if entire line is selected (multi-line selection)
+	IsHovered        bool // True if mouse is hovering over this line
+	IsHandleSelected bool // True if this line is selected via handle click
 }
+
+// RenderHandle renders the selection handle "|| " based on context
+func RenderHandle(ctx DrawContext) string {
+	showHandle := ctx.IsHovered || ctx.LineSelected || ctx.IsHandleSelected
+	if showHandle {
+		if ctx.LineSelected || ctx.IsHandleSelected {
+			// Selected style (bright)
+			return HandleSelectedStyle.Render("||") + " "
+		}
+		// Hover style (dim)
+		return HandleStyle.Render("||") + " "
+	}
+	// Invisible but takes space
+	return "   "
+}
+
+// Handle styles (defined here to avoid import cycle with styles package)
+var (
+	HandleStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("240"))
+
+	HandleSelectedStyle = lipgloss.NewStyle().
+				Foreground(lipgloss.Color("39")).
+				Bold(true)
+)
 
 // Drawer is the interface for rendering blocks
 type Drawer interface {
@@ -67,6 +94,38 @@ type Drawer interface {
 	HandleMouse(b block.Block, ctx MouseContext) Action
 	PrefixWidth() int // Returns the width of the block's prefix (bullet, checkbox, etc.)
 	SupportedType() block.BlockType
+}
+
+// BlockDrawer represents a drawable block with its position
+type BlockDrawer struct {
+	Block      block.Block
+	Drawer     Drawer
+	Y          int  // Screen Y position
+	BlockIndex int  // Index in document
+}
+
+// Draw renders the block
+func (bd *BlockDrawer) Draw(ctx DrawContext) string {
+	return bd.Drawer.Draw(bd.Block, ctx)
+}
+
+// ContainsY returns true if the given screen Y is on this drawer
+func (bd *BlockDrawer) ContainsY(y int) bool {
+	return y == bd.Y
+}
+
+// HandleMouse handles mouse event if it's on this drawer, returns action and whether it handled it
+func (bd *BlockDrawer) HandleMouse(screenY int, ctx MouseContext) (Action, bool) {
+	if !bd.ContainsY(screenY) {
+		return Action{Type: ActionNone}, false
+	}
+	action := bd.Drawer.HandleMouse(bd.Block, ctx)
+	return action, true
+}
+
+// PrefixWidth returns the prefix width of the underlying drawer
+func (bd *BlockDrawer) PrefixWidth() int {
+	return bd.Drawer.PrefixWidth()
 }
 
 // DrawerRegistry maps BlockType to Drawer implementations
@@ -116,6 +175,25 @@ func (r *DrawerRegistry) PrefixWidth(b block.Block) int {
 		return d.PrefixWidth()
 	}
 	return 0
+}
+
+// CreateBlockDrawer creates a BlockDrawer for the given block at the specified position
+func (r *DrawerRegistry) CreateBlockDrawer(b block.Block, y int, blockIndex int) *BlockDrawer {
+	var drw Drawer
+	if d, ok := r.drawers[b.Type()]; ok {
+		drw = d
+	} else if d, ok := r.drawers[block.TypeText]; ok {
+		drw = d
+	} else {
+		return nil
+	}
+
+	return &BlockDrawer{
+		Block:      b,
+		Drawer:     drw,
+		Y:          y,
+		BlockIndex: blockIndex,
+	}
 }
 
 // RegisterAll registers all standard drawers

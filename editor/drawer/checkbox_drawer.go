@@ -14,18 +14,21 @@ const checkboxPrefixWidth = 4 // "[x] " or "[ ] " = 4 characters
 
 // Draw renders a checkbox block with a checkbox prefix
 func (d *CheckboxDrawer) Draw(b block.Block, ctx DrawContext) string {
+	// Render handle first
+	handle := RenderHandle(ctx)
+
 	cb, ok := b.(*block.CheckboxBlock)
 	if !ok {
 		// Fallback rendering if not a CheckboxBlock
 		content := b.Content()
 		spans := b.Spans()
 		if ctx.ShowCursor && ctx.IsFocused {
-			return RenderFormattedContentFull(content, spans, styles.TextStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
+			return handle + RenderFormattedContentFull(content, spans, styles.TextStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
 		}
 		if ctx.LineSelected {
-			return RenderFormattedContentLineSelected(content, spans, styles.TextStyle)
+			return handle + RenderFormattedContentLineSelected(content, spans, styles.TextStyle)
 		}
-		return RenderFormattedContentWithSelection(content, spans, styles.TextStyle, ctx.SelectionStart, ctx.SelectionEnd)
+		return handle + RenderFormattedContentWithSelection(content, spans, styles.TextStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
 
 	content := cb.Content()
@@ -60,7 +63,7 @@ func (d *CheckboxDrawer) Draw(b block.Block, ctx DrawContext) string {
 		styledContent = RenderFormattedContentWithSelection(content, spans, contentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
 
-	return prefix + styledContent
+	return handle + prefix + styledContent
 }
 
 // HandleMouse handles mouse events for checkbox blocks

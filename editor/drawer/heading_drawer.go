@@ -14,6 +14,9 @@ type HeadingDrawer struct {
 
 // Draw renders a heading block with styled content (no prefix)
 func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
+	// Render handle first
+	handle := RenderHandle(ctx)
+
 	level := d.Level
 
 	// If the block is a HeadingBlock, use its level
@@ -39,13 +42,16 @@ func (d *HeadingDrawer) Draw(b block.Block, ctx DrawContext) string {
 		contentStyle = styles.H4Style
 	}
 
+	var textContent string
 	if ctx.ShowCursor && ctx.IsFocused {
-		return RenderFormattedContentFull(content, spans, contentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
+		textContent = RenderFormattedContentFull(content, spans, contentStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
+	} else if ctx.LineSelected {
+		textContent = RenderFormattedContentLineSelected(content, spans, contentStyle)
+	} else {
+		textContent = RenderFormattedContentWithSelection(content, spans, contentStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
-	if ctx.LineSelected {
-		return RenderFormattedContentLineSelected(content, spans, contentStyle)
-	}
-	return RenderFormattedContentWithSelection(content, spans, contentStyle, ctx.SelectionStart, ctx.SelectionEnd)
+
+	return handle + textContent
 }
 
 // HandleMouse handles mouse events for heading blocks

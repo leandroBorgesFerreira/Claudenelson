@@ -449,20 +449,8 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ensureCursorVisible()
 
 	case tea.MouseMsg:
-		blockIndex := m.getBlockAtY(msg.Y)
-
-		// Always track hovered line for handle visibility
-		if msg.Action == tea.MouseActionMotion {
-			m.hoveredLine = blockIndex
-		}
-
-		// Delegate mouse handling to the appropriate drawer
-		if blockIndex >= 0 {
-			blk := m.doc.BlockAt(blockIndex)
-			if blk != nil {
-				cmd = m.handleBlockMouse(blk, blockIndex, msg)
-			}
-		}
+		// Delegate mouse handling to block drawers
+		cmd = m.handleMouseEvent(msg)
 	}
 
 	return m, cmd
@@ -512,38 +500,23 @@ func (m Model) View() string {
 
 		// Check if this line is part of multi-line selection or handle-selected
 		lineSelected := m.isLineSelected(i) || m.isLineHandleSelected(i)
-
-		ctx := drawer.DrawContext{
-			Width:          m.width,
-			IsFocused:      isFocused,
-			CursorPos:      m.doc.CursorCol,
-			LineNumber:     i,
-			ShowCursor:     true,
-			SelectionStart: selStart,
-			SelectionEnd:   selEnd,
-			LineSelected:   lineSelected,
-		}
-
-		// Render the block content
-		content := m.registry.Draw(blk, ctx)
-
-		// Check if line is handle-selected (for handle display)
 		handleSelected := m.isLineHandleSelected(i)
 
-		// Selection handle at line start (only visible on hover or when selected)
-		var handle string
-		if i == m.hoveredLine || lineSelected || handleSelected {
-			if lineSelected || handleSelected {
-				handle = styles.HandleSelectedStyle.Render("||")
-			} else {
-				handle = styles.HandleStyle.Render("||")
-			}
-		} else {
-			handle = "  " // Invisible but takes space
+		ctx := drawer.DrawContext{
+			Width:            m.width,
+			IsFocused:        isFocused,
+			CursorPos:        m.doc.CursorCol,
+			LineNumber:       i,
+			ShowCursor:       true,
+			SelectionStart:   selStart,
+			SelectionEnd:     selEnd,
+			LineSelected:     lineSelected,
+			IsHovered:        i == m.hoveredLine,
+			IsHandleSelected: handleSelected,
 		}
 
-		b.WriteString(handle)
-		b.WriteString(" ")
+		// Render the block content (drawer handles the handle rendering)
+		content := m.registry.Draw(blk, ctx)
 		b.WriteString(content)
 		b.WriteString("\n")
 	}

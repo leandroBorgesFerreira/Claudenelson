@@ -13,13 +13,19 @@ func (d *TextDrawer) Draw(b block.Block, ctx DrawContext) string {
 	content := b.Content()
 	spans := b.Spans()
 
+	// Render handle first
+	handle := RenderHandle(ctx)
+
+	var textContent string
 	if ctx.ShowCursor && ctx.IsFocused {
-		return RenderFormattedContentFull(content, spans, styles.TextStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
+		textContent = RenderFormattedContentFull(content, spans, styles.TextStyle, ctx.CursorPos, ctx.SelectionStart, ctx.SelectionEnd, ctx.LineSelected)
+	} else if ctx.LineSelected {
+		textContent = RenderFormattedContentLineSelected(content, spans, styles.TextStyle)
+	} else {
+		textContent = RenderFormattedContentWithSelection(content, spans, styles.TextStyle, ctx.SelectionStart, ctx.SelectionEnd)
 	}
-	if ctx.LineSelected {
-		return RenderFormattedContentLineSelected(content, spans, styles.TextStyle)
-	}
-	return RenderFormattedContentWithSelection(content, spans, styles.TextStyle, ctx.SelectionStart, ctx.SelectionEnd)
+
+	return handle + textContent
 }
 
 // HandleMouse handles mouse events for text blocks

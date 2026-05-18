@@ -14,38 +14,43 @@ const (
 	doubleClickThreshold = 500 * time.Millisecond
 )
 
-// getBlockAtY returns the block index at the given Y position, or -1 if none
-func (m Model) getBlockAtY(y int) int {
-	// View structure:
-	// Line 0: Title
-	// Line 1: Empty
-	// Line 2: (optional) "↑ N more lines above" if scrollOffset > 0
-	// Line 2 or 3: First visible block
-	headerLines := 1
-	if m.scrollOffset > 0 {
-		headerLines = 2 // Extra line for scroll indicator
-	}
-
-	screenBlockIndex := y - headerLines
-	if screenBlockIndex < 0 {
-		return -1
-	}
-
-	blockIndex := screenBlockIndex + m.scrollOffset
-	if blockIndex >= 0 && blockIndex < m.doc.BlockCount() {
-		return blockIndex
-	}
-	return -1
-}
-
 // isClickOnHandle returns true if the X position is on the "||" handle
 func (m Model) isClickOnHandle(x int) bool {
 	return x < 2 // "||" is at positions 0 and 1
 }
 
-// handleBlockMouse processes mouse events by delegating to the block's drawer
-func (m *Model) handleBlockMouse(blk block.Block, blockIndex int, msg tea.MouseMsg) tea.Cmd {
-	// Convert tea.MouseMsg to drawer.MouseContext
+// getBlockDrawerAtY finds or creates the BlockDrawer at the given screen Y position
+func (m *Model) getBlockDrawerAtY(y int) *drawer.BlockDrawer {
+	// Calculate header offset
+	// View structure: Title (0), Empty line (1), [scroll indicator (2) if scrollOffset > 0], then blocks
+	headerLines := 1
+	if m.scrollOffset > 0 {
+		headerLines = 2
+	}
+
+	// Calculate which block index this Y corresponds to
+	blockY := y - headerLines
+	if blockY < 0 {
+		return nil
+	}
+
+	blockIndex := blockY + m.scrollOffset
+	if blockIndex < 0 || blockIndex >= m.doc.BlockCount() {
+		return nil
+	}
+
+	blk := m.doc.BlockAt(blockIndex)
+	if blk == nil {
+		return nil
+	}
+
+	// Create a BlockDrawer for this position
+	return m.registry.CreateBlockDrawer(blk, y, blockIndex)
+}
+
+// handleMouseEvent processes mouse events by delegating to block drawers
+func (m *Model) handleMouseEvent(msg tea.MouseMsg) tea.Cmd {
+	// Convert tea mouse action to drawer event type
 	var eventType drawer.MouseEventType
 	switch msg.Action {
 	case tea.MouseActionPress:
@@ -58,10 +63,26 @@ func (m *Model) handleBlockMouse(blk block.Block, blockIndex int, msg tea.MouseM
 		return nil
 	}
 
-	// Only handle left button clicks
+	// Find the drawer at this Y position
+	targetDrawer := m.getBlockDrawerAtY(msg.Y)
+
+	// Update hover state
+	if targetDrawer != nil {
+		m.hoveredLine = targetDrawer.BlockIndex
+	} else {
+		m.hoveredLine = -1
+	}
+
+	// Only handle left button for clicks
 	if msg.Button != tea.MouseButtonLeft && msg.Action != tea.MouseActionMotion {
 		return nil
 	}
+
+	if targetDrawer == nil {
+		return nil
+	}
+
+	blockIndex := targetDrawer.BlockIndex
 
 	// Check if click is on the handle first
 	if msg.Action == tea.MouseActionPress && m.isClickOnHandle(msg.X) {
@@ -87,9 +108,9 @@ func (m *Model) handleBlockMouse(blk block.Block, blockIndex int, msg tea.MouseM
 	}
 
 	// Calculate X position relative to content (after handle and prefix)
-	prefixWidth := m.registry.PrefixWidth(blk)
-	rawX := msg.X - handleWidth          // X relative to block start (includes prefix)
-	contentX := rawX - prefixWidth       // X relative to content start
+	prefixWidth := targetDrawer.PrefixWidth()
+	rawX := msg.X - handleWidth    // X relative to block start (includes prefix)
+	contentX := rawX - prefixWidth // X relative to content start
 
 	// Build mouse context for the drawer
 	mouseCtx := drawer.MouseContext{
@@ -100,11 +121,14 @@ func (m *Model) handleBlockMouse(blk block.Block, blockIndex int, msg tea.MouseM
 		IsDragging: m.isDragging,
 	}
 
-	// Delegate to the drawer
-	action := m.registry.HandleMouse(blk, mouseCtx)
+	// Let the drawer handle the mouse event
+	action, handled := targetDrawer.HandleMouse(msg.Y, mouseCtx)
+	if !handled {
+		return nil
+	}
 
 	// Process the action returned by the drawer
-	return m.processDrawerAction(action, blk, blockIndex)
+	return m.processDrawerAction(action, targetDrawer.Block, blockIndex)
 }
 
 // processDrawerAction applies the action returned by a drawer
