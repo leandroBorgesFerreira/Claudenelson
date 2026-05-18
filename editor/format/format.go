@@ -249,6 +249,225 @@ func (spans Spans) RemoveHighlight(start, end int) Spans {
 	return result.Normalize()
 }
 
+// isRangeBold checks if the entire range [start, end) is bold
+func (spans Spans) isRangeBold(start, end int) bool {
+	if start >= end {
+		return false
+	}
+	for pos := start; pos < end; pos++ {
+		bold := false
+		for _, span := range spans {
+			if span.Style.Bold && span.Start <= pos && pos < span.End {
+				bold = true
+				break
+			}
+		}
+		if !bold {
+			return false
+		}
+	}
+	return true
+}
+
+// isRangeItalic checks if the entire range [start, end) is italic
+func (spans Spans) isRangeItalic(start, end int) bool {
+	if start >= end {
+		return false
+	}
+	for pos := start; pos < end; pos++ {
+		italic := false
+		for _, span := range spans {
+			if span.Style.Italic && span.Start <= pos && pos < span.End {
+				italic = true
+				break
+			}
+		}
+		if !italic {
+			return false
+		}
+	}
+	return true
+}
+
+// isRangeUnderline checks if the entire range [start, end) is underlined
+func (spans Spans) isRangeUnderline(start, end int) bool {
+	if start >= end {
+		return false
+	}
+	for pos := start; pos < end; pos++ {
+		underline := false
+		for _, span := range spans {
+			if span.Style.Underline && span.Start <= pos && pos < span.End {
+				underline = true
+				break
+			}
+		}
+		if !underline {
+			return false
+		}
+	}
+	return true
+}
+
+// ToggleBold toggles bold formatting for a range of text
+func (spans Spans) ToggleBold(start, end int) Spans {
+	if start >= end {
+		return spans
+	}
+
+	if spans.isRangeBold(start, end) {
+		return spans.RemoveFormat(start, end, true, false, false, false)
+	}
+
+	result := append(spans, Span{
+		Start: start,
+		End:   end,
+		Style: Style{Bold: true},
+	})
+	return result.Normalize()
+}
+
+// ToggleItalic toggles italic formatting for a range of text
+func (spans Spans) ToggleItalic(start, end int) Spans {
+	if start >= end {
+		return spans
+	}
+
+	if spans.isRangeItalic(start, end) {
+		return spans.RemoveFormat(start, end, false, true, false, false)
+	}
+
+	result := append(spans, Span{
+		Start: start,
+		End:   end,
+		Style: Style{Italic: true},
+	})
+	return result.Normalize()
+}
+
+// ToggleUnderline toggles underline formatting for a range of text
+func (spans Spans) ToggleUnderline(start, end int) Spans {
+	if start >= end {
+		return spans
+	}
+
+	if spans.isRangeUnderline(start, end) {
+		return spans.RemoveFormat(start, end, false, false, true, false)
+	}
+
+	result := append(spans, Span{
+		Start: start,
+		End:   end,
+		Style: Style{Underline: true},
+	})
+	return result.Normalize()
+}
+
+// RemoveFormat removes specific formatting from a range of text
+func (spans Spans) RemoveFormat(start, end int, removeBold, removeItalic, removeUnderline, removeHighlight bool) Spans {
+	if start >= end {
+		return spans
+	}
+
+	var result Spans
+	for _, span := range spans {
+		// Check if this span has any of the formats we're removing
+		shouldProcess := (removeBold && span.Style.Bold) ||
+			(removeItalic && span.Style.Italic) ||
+			(removeUnderline && span.Style.Underline) ||
+			(removeHighlight && span.Style.Highlight)
+
+		if !shouldProcess {
+			result = append(result, span)
+			continue
+		}
+
+		// Handle spans that need format removal
+		if span.End <= start || span.Start >= end {
+			// Span is completely outside the range - keep it
+			result = append(result, span)
+		} else if span.Start >= start && span.End <= end {
+			// Span is completely inside the range - remove the specified formats
+			newStyle := span.Style
+			if removeBold {
+				newStyle.Bold = false
+			}
+			if removeItalic {
+				newStyle.Italic = false
+			}
+			if removeUnderline {
+				newStyle.Underline = false
+			}
+			if removeHighlight {
+				newStyle.Highlight = false
+			}
+			if !newStyle.IsPlain() {
+				result = append(result, Span{Start: span.Start, End: span.End, Style: newStyle})
+			}
+		} else if span.Start < start && span.End > end {
+			// Range is inside the span - split into three parts
+			result = append(result, Span{Start: span.Start, End: start, Style: span.Style})
+			newStyle := span.Style
+			if removeBold {
+				newStyle.Bold = false
+			}
+			if removeItalic {
+				newStyle.Italic = false
+			}
+			if removeUnderline {
+				newStyle.Underline = false
+			}
+			if removeHighlight {
+				newStyle.Highlight = false
+			}
+			if !newStyle.IsPlain() {
+				result = append(result, Span{Start: start, End: end, Style: newStyle})
+			}
+			result = append(result, Span{Start: end, End: span.End, Style: span.Style})
+		} else if span.Start < start {
+			// Span overlaps on the left
+			result = append(result, Span{Start: span.Start, End: start, Style: span.Style})
+			newStyle := span.Style
+			if removeBold {
+				newStyle.Bold = false
+			}
+			if removeItalic {
+				newStyle.Italic = false
+			}
+			if removeUnderline {
+				newStyle.Underline = false
+			}
+			if removeHighlight {
+				newStyle.Highlight = false
+			}
+			if !newStyle.IsPlain() {
+				result = append(result, Span{Start: start, End: span.End, Style: newStyle})
+			}
+		} else if span.End > end {
+			// Span overlaps on the right
+			newStyle := span.Style
+			if removeBold {
+				newStyle.Bold = false
+			}
+			if removeItalic {
+				newStyle.Italic = false
+			}
+			if removeUnderline {
+				newStyle.Underline = false
+			}
+			if removeHighlight {
+				newStyle.Highlight = false
+			}
+			if !newStyle.IsPlain() {
+				result = append(result, Span{Start: span.Start, End: end, Style: newStyle})
+			}
+			result = append(result, Span{Start: end, End: span.End, Style: span.Style})
+		}
+	}
+
+	return result.Normalize()
+}
+
 // SplitAt splits spans at position and returns spans for left and right parts
 func (spans Spans) SplitAt(pos int) (Spans, Spans) {
 	var left, right Spans

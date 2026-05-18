@@ -78,6 +78,10 @@ type Model struct {
 	clickCount    int       // Number of consecutive clicks (1=single, 2=double for word, 3=triple for line)
 	// Drag selection
 	isDragging bool // Whether mouse is being dragged for selection
+	// Hover tracking
+	hoveredLine int // Line currently being hovered (-1 if none)
+	// Multi-line handle selection
+	selectedLines map[int]bool // Lines selected via handle clicks
 }
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
@@ -246,6 +250,8 @@ func New(savePath string) Model {
 		dirty:          false,
 		undoManager:    undo.NewManager(100), // Keep up to 100 undo entries
 		lastBlockIndex: -1,
+		hoveredLine:    -1,
+		selectedLines:  make(map[int]bool),
 	}
 }
 
@@ -321,6 +327,31 @@ func (m *Model) clearCharSelection() {
 func (m *Model) clearAllSelections() {
 	m.clearMultiLineSelection()
 	m.clearCharSelection()
+	m.clearHandleSelection()
+}
+
+// clearHandleSelection clears handle-based line selections
+func (m *Model) clearHandleSelection() {
+	m.selectedLines = make(map[int]bool)
+}
+
+// isLineHandleSelected returns true if the line is selected via handle
+func (m *Model) isLineHandleSelected(line int) bool {
+	return m.selectedLines[line]
+}
+
+// toggleLineHandleSelection toggles the handle selection for a line
+func (m *Model) toggleLineHandleSelection(line int) {
+	if m.selectedLines[line] {
+		delete(m.selectedLines, line)
+	} else {
+		m.selectedLines[line] = true
+	}
+}
+
+// hasHandleSelection returns true if any lines are handle-selected
+func (m *Model) hasHandleSelection() bool {
+	return len(m.selectedLines) > 0
 }
 
 // getCharSelectionForLine returns the selection range for a specific line
@@ -824,9 +855,205 @@ func (m *Model) deleteSelectedLines() tea.Cmd {
 	return m.markDirty()
 }
 
+// deleteHandleSelectedLines deletes all lines selected via handle
+func (m *Model) deleteHandleSelectedLines() tea.Cmd {
+	if !m.hasHandleSelection() {
+		return nil
+	}
+
+	// Get sorted list of selected lines (descending for safe deletion)
+	var selectedIndices []int
+	for idx := range m.selectedLines {
+		selectedIndices = append(selectedIndices, idx)
+	}
+	// Sort descending
+	for i := 0; i < len(selectedIndices)-1; i++ {
+		for j := i + 1; j < len(selectedIndices); j++ {
+			if selectedIndices[i] < selectedIndices[j] {
+				selectedIndices[i], selectedIndices[j] = selectedIndices[j], selectedIndices[i]
+			}
+		}
+	}
+
+	cursorLine := m.doc.CursorLine
+	cursorCol := m.doc.CursorCol
+
+	// Capture states for undo (in ascending order for proper restore)
+	var deletedStates []undo.BlockState
+	minIdx := selectedIndices[len(selectedIndices)-1]
+	for i := len(selectedIndices) - 1; i >= 0; i-- {
+		idx := selectedIndices[i]
+		blk := m.doc.BlockAt(idx)
+		if blk != nil {
+			state := undo.CaptureBlockState(blk)
+			if state != nil {
+				deletedStates = append(deletedStates, *state)
+			}
+		}
+	}
+
+	// Don't delete all blocks - keep at least one
+	if len(selectedIndices) >= m.doc.BlockCount() {
+		for m.doc.BlockCount() > 1 {
+			m.doc.RemoveBlock(m.doc.BlockCount() - 1)
+		}
+		m.doc.Blocks[0].SetContent("")
+		m.doc.Blocks[0].SetSpans(nil)
+		m.doc.CursorLine = 0
+		m.doc.CursorCol = 0
+	} else {
+		// Delete from highest index to lowest
+		for _, idx := range selectedIndices {
+			if idx < m.doc.BlockCount() {
+				m.doc.RemoveBlock(idx)
+			}
+		}
+		// Adjust cursor
+		if minIdx >= m.doc.BlockCount() {
+			m.doc.CursorLine = m.doc.BlockCount() - 1
+		} else {
+			m.doc.CursorLine = minIdx
+		}
+		m.doc.CursorCol = 0
+	}
+
+	if len(deletedStates) > 0 {
+		m.undoManager.RecordMultiDelete(minIdx, deletedStates, cursorLine, cursorCol)
+	}
+
+	m.clearHandleSelection()
+	m.ensureCursorVisible()
+	return m.markDirty()
+}
+
+// applyFormatToHandleSelectedLines applies a formatting style to all handle-selected lines
+func (m *Model) applyFormatToHandleSelectedLines(style format.Style) tea.Cmd {
+	if !m.hasHandleSelection() {
+		return nil
+	}
+
+	for idx := range m.selectedLines {
+		blk := m.doc.BlockAt(idx)
+		if blk == nil {
+			continue
+		}
+		content := blk.Content()
+		contentLen := len([]rune(content))
+		if contentLen == 0 {
+			continue
+		}
+
+		// Apply style to entire line
+		spans := blk.Spans()
+		newSpan := format.Span{
+			Start: 0,
+			End:   contentLen,
+			Style: style,
+		}
+		spans = append(spans, newSpan)
+		spans = spans.Normalize()
+		blk.SetSpans(spans)
+	}
+
+	m.clearHandleSelection()
+	return m.markDirty()
+}
+
+// toggleFormatOnHandleSelectedLines toggles a format on all handle-selected lines
+func (m *Model) toggleFormatOnHandleSelectedLines(toggleBold, toggleItalic, toggleUnderline bool) tea.Cmd {
+	if !m.hasHandleSelection() {
+		return nil
+	}
+
+	for idx := range m.selectedLines {
+		blk := m.doc.BlockAt(idx)
+		if blk == nil {
+			continue
+		}
+		content := blk.Content()
+		contentLen := len([]rune(content))
+		if contentLen == 0 {
+			continue
+		}
+
+		spans := blk.Spans()
+		if toggleBold {
+			spans = spans.ToggleBold(0, contentLen)
+		}
+		if toggleItalic {
+			spans = spans.ToggleItalic(0, contentLen)
+		}
+		if toggleUnderline {
+			spans = spans.ToggleUnderline(0, contentLen)
+		}
+		blk.SetSpans(spans)
+	}
+
+	m.clearHandleSelection()
+	return m.markDirty()
+}
+
+// toggleFormatOnCharSelection toggles a format on the character selection
+func (m *Model) toggleFormatOnCharSelection(toggleBold, toggleItalic, toggleUnderline bool) tea.Cmd {
+	if !m.charSelect {
+		return nil
+	}
+
+	// Normalize selection direction
+	startLine, startCol := m.charSelStartLine, m.charSelStartCol
+	endLine, endCol := m.charSelEndLine, m.charSelEndCol
+	if startLine > endLine || (startLine == endLine && startCol > endCol) {
+		startLine, endLine = endLine, startLine
+		startCol, endCol = endCol, startCol
+	}
+
+	// Apply format to each line in selection
+	for line := startLine; line <= endLine && line < m.doc.BlockCount(); line++ {
+		blk := m.doc.BlockAt(line)
+		if blk == nil {
+			continue
+		}
+
+		contentLen := len([]rune(blk.Content()))
+		if contentLen == 0 {
+			continue
+		}
+
+		// Determine start and end for this line
+		lineStart := 0
+		lineEnd := contentLen
+
+		if line == startLine {
+			lineStart = startCol
+		}
+		if line == endLine {
+			lineEnd = endCol
+		}
+
+		if lineStart >= lineEnd {
+			continue
+		}
+
+		spans := blk.Spans()
+		if toggleBold {
+			spans = spans.ToggleBold(lineStart, lineEnd)
+		}
+		if toggleItalic {
+			spans = spans.ToggleItalic(lineStart, lineEnd)
+		}
+		if toggleUnderline {
+			spans = spans.ToggleUnderline(lineStart, lineEnd)
+		}
+		blk.SetSpans(spans)
+	}
+
+	m.clearCharSelection()
+	return m.markDirty()
+}
+
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
-	return tea.EnableMouseCellMotion
+	return tea.EnableMouseAllMotion
 }
 
 // Update handles messages and updates the model
@@ -997,13 +1224,31 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "ctrl+b":
-			m.boldMode = !m.boldMode
+			if m.hasHandleSelection() {
+				cmd = m.toggleFormatOnHandleSelectedLines(true, false, false)
+			} else if m.charSelect {
+				cmd = m.toggleFormatOnCharSelection(true, false, false)
+			} else {
+				m.boldMode = !m.boldMode
+			}
 
 		case "ctrl+i":
-			m.italicMode = !m.italicMode
+			if m.hasHandleSelection() {
+				cmd = m.toggleFormatOnHandleSelectedLines(false, true, false)
+			} else if m.charSelect {
+				cmd = m.toggleFormatOnCharSelection(false, true, false)
+			} else {
+				m.italicMode = !m.italicMode
+			}
 
 		case "ctrl+u":
-			m.underlineMode = !m.underlineMode
+			if m.hasHandleSelection() {
+				cmd = m.toggleFormatOnHandleSelectedLines(false, false, true)
+			} else if m.charSelect {
+				cmd = m.toggleFormatOnCharSelection(false, false, true)
+			} else {
+				m.underlineMode = !m.underlineMode
+			}
 
 		case "ctrl+h":
 			// Enter highlight mode - start selection at current cursor
@@ -1019,7 +1264,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			cmd = m.performRedo()
 
 		case "backspace":
-			if m.multiLineSelect {
+			if m.hasHandleSelection() {
+				cmd = m.deleteHandleSelectedLines()
+			} else if m.multiLineSelect {
 				cmd = m.deleteSelectedLines()
 			} else if m.charSelect {
 				cmd = m.deleteCharSelection()
@@ -1037,7 +1284,9 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "delete":
-			if m.multiLineSelect {
+			if m.hasHandleSelection() {
+				cmd = m.deleteHandleSelectedLines()
+			} else if m.multiLineSelect {
 				cmd = m.deleteSelectedLines()
 			} else if m.charSelect {
 				cmd = m.deleteCharSelection()
@@ -1124,6 +1373,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ensureCursorVisible()
 
 	case tea.MouseMsg:
+		// Always track hovered line for handle visibility (regardless of button)
+		if msg.Action == tea.MouseActionMotion {
+			blockIndex := m.getBlockAtY(msg.Y)
+			m.hoveredLine = blockIndex
+
+			// Drag to extend selection (only within same line for now)
+			if m.isDragging && msg.Button == tea.MouseButtonLeft {
+				if blockIndex >= 0 && blockIndex == m.charSelStartLine {
+					col := m.getColumnAtX(blockIndex, msg.X)
+					m.charSelEndLine = blockIndex
+					m.charSelEndCol = col
+					m.doc.CursorCol = col
+				}
+			}
+		}
+
 		if msg.Button == tea.MouseButtonLeft {
 			switch msg.Action {
 			case tea.MouseActionPress:
@@ -1149,23 +1414,15 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					switch m.clickCount {
 					case 1:
 						// Single click
-						m.clearAllSelections()
 						m.doc.SetCursor(blockIndex)
 
 						// Check if click is on the "||" handle
 						if m.isClickOnHandle(msg.X) {
-							// Select whole line
-							blk := m.doc.BlockAt(blockIndex)
-							if blk != nil {
-								content := []rune(blk.Content())
-								m.charSelect = true
-								m.charSelStartLine = blockIndex
-								m.charSelStartCol = 0
-								m.charSelEndLine = blockIndex
-								m.charSelEndCol = len(content)
-								m.doc.CursorCol = len(content)
-							}
+							// Toggle line selection (allows multiple lines)
+							m.clearCharSelection() // Clear drag selection but keep handle selections
+							m.toggleLineHandleSelection(blockIndex)
 						} else {
+							m.clearAllSelections()
 							m.doc.CursorCol = col
 							// Start drag selection
 							m.isDragging = true
@@ -1214,18 +1471,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						}
 					}
 					m.ensureCursorVisible()
-				}
-
-			case tea.MouseActionMotion:
-				// Drag to extend selection (only within same line for now)
-				if m.isDragging {
-					blockIndex := m.getBlockAtY(msg.Y)
-					if blockIndex >= 0 && blockIndex == m.charSelStartLine {
-						col := m.getColumnAtX(blockIndex, msg.X)
-						m.charSelEndLine = blockIndex
-						m.charSelEndCol = col
-						m.doc.CursorCol = col
-					}
 				}
 
 			case tea.MouseActionRelease:
@@ -1488,8 +1733,8 @@ func (m Model) View() string {
 			selStart, selEnd = m.getCharSelectionForLine(i)
 		}
 
-		// Check if this line is part of multi-line selection
-		lineSelected := m.isLineSelected(i)
+		// Check if this line is part of multi-line selection or handle-selected
+		lineSelected := m.isLineSelected(i) || m.isLineHandleSelected(i)
 
 		ctx := drawer.DrawContext{
 			Width:          m.width,
@@ -1505,10 +1750,19 @@ func (m Model) View() string {
 		// Render the block content
 		content := m.registry.Draw(blk, ctx)
 
-		// Selection handle at line start
-		handle := styles.HandleStyle.Render("||")
-		if lineSelected {
-			handle = styles.HandleSelectedStyle.Render("||")
+		// Check if line is handle-selected (for handle display)
+		handleSelected := m.isLineHandleSelected(i)
+
+		// Selection handle at line start (only visible on hover or when selected)
+		var handle string
+		if i == m.hoveredLine || lineSelected || handleSelected {
+			if lineSelected || handleSelected {
+				handle = styles.HandleSelectedStyle.Render("||")
+			} else {
+				handle = styles.HandleStyle.Render("||")
+			}
+		} else {
+			handle = "  " // Invisible but takes space
 		}
 
 		b.WriteString(handle)

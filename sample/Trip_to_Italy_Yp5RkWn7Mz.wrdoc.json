@@ -103,7 +103,19 @@
                 "number": 0
             },
             "text": "The birthplace of the .",
-            "position": 9
+            "position": 9,
+            "spans": [
+                {
+                    "start": 0,
+                    "end": 13,
+                    "span": "BOLD"
+                },
+                {
+                    "start": 0,
+                    "end": 21,
+                    "span": "BOLD"
+                }
+            ]
         },
         {
             "id": "block-11",
@@ -111,7 +123,7 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Uffizi Gallery - World-class art museum",
+            "text": "∫St. Mark's Square - Heart of Venice",
             "position": 10
         },
         {
@@ -120,7 +132,7 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Duomo - Iconic cathedral with stunning dome",
+            "text": "Grand Canal - Take a gondola ride",
             "position": 11
         },
         {
@@ -129,8 +141,23 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "- Historic bridge with shops",
+            "text": "Murano Island - Famous for glassmaking",
             "position": 12
+        },
+        {
+            "id": "block-14",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Amalfi Coast",
+            "position": 13,
+            "tags": [
+                {
+                    "tag": "H2",
+                    "position": 0
+                }
+            ]
         },
         {
             "id": "block-15",
@@ -138,8 +165,8 @@
                 "name": "message",
                 "number": 0
             },
-            "text": "The romantic city of canals.",
-            "position": 13
+            "text": "Stunning coastal scenery in southern Italy.",
+            "position": 14
         },
         {
             "id": "block-16",
@@ -147,8 +174,8 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "St. Mark's Square - Heart of Venice",
-            "position": 14
+            "text": "Positano - Colorful cliffside village",
+            "position": 15
         },
         {
             "id": "block-17",
@@ -156,8 +183,8 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Grand Canal - Take a gondola ride",
-            "position": 15
+            "text": "Ravello - Gardens with panoramic views",
+            "position": 16
         },
         {
             "id": "block-18",
@@ -165,8 +192,8 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Murano Island - Famous for glassmaking",
-            "position": 16
+            "text": "Amalfi - Historic maritime town",
+            "position": 17
         },
         {
             "id": "block-19",
@@ -174,8 +201,8 @@
                 "name": "message",
                 "number": 0
             },
-            "text": "Amalfi Coast",
-            "position": 17,
+            "text": "Travel Tips",
+            "position": 18,
             "tags": [
                 {
                     "tag": "H2",
@@ -186,11 +213,11 @@
         {
             "id": "block-20",
             "type": {
-                "name": "message",
-                "number": 0
+                "name": "unordered_list_item",
+                "number": 16
             },
-            "text": "Stunning coastal scenery in southern Italy.",
-            "position": 18
+            "text": "Best time to visit: April to June or September to October",
+            "position": 19
         },
         {
             "id": "block-21",
@@ -198,8 +225,8 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Positano - Colorful cliffside village",
-            "position": 19
+            "text": "Book popular attractions in advance",
+            "position": 20
         },
         {
             "id": "block-22",
@@ -207,8 +234,8 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Ravello - Gardens with panoramic views",
-            "position": 20
+            "text": "Learn a few Italian phrases - locals appreciate it!",
+            "position": 21
         },
         {
             "id": "block-23",
@@ -216,71 +243,20 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Amalfi - Historic maritime town",
-            "position": 21
-        },
-        {
-            "id": "block-24",
-            "type": {
-                "name": "message",
-                "number": 0
-            },
-            "text": "Travel Tips",
-            "position": 22,
-            "tags": [
-                {
-                    "tag": "H2",
-                    "position": 0
-                }
-            ]
-        },
-        {
-            "id": "block-25",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "Best time to visit: April to June or September to October",
-            "position": 23
-        },
-        {
-            "id": "block-26",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "Book popular attractions in advance",
-            "position": 24
-        },
-        {
-            "id": "block-27",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "Learn a few Italian phrases - locals appreciate it!",
-            "position": 25
-        },
-        {
-            "id": "block-28",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
             "text": "ry local cuisine: pasta, pizza, gelato, and espresso",
-            "position": 26
+            "position": 22
         },
         {
-            "id": "ksZYZA2OnD",
+            "id": "xKweFpXvqj",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 27
+            "position": 23
         }
     ],
     "createdAt": 1776610800000,
-    "lastUpdatedAt": 1779127643787,
+    "lastUpdatedAt": 1779128895989,
     "parentId": "root",
     "isLocked": false,
     "isFavorite": false,
