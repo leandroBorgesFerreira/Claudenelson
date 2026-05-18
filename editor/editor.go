@@ -76,6 +76,8 @@ type Model struct {
 	lastClickLine int       // Line of last mouse click
 	lastClickCol  int       // Column of last mouse click
 	clickCount    int       // Number of consecutive clicks (1=single, 2=double for word, 3=triple for line)
+	// Drag selection
+	isDragging bool // Whether mouse is being dragged for selection
 }
 
 // getBlockAtY returns the block index at the given Y position, or -1 if none
@@ -114,7 +116,7 @@ func (m Model) getColumnAtX(blockIndex, x int) int {
 
 	// Account for left indent (2 spaces) and block prefix
 	prefix := m.getBlockPrefix(blk)
-	prefixLen := len(prefix)
+	prefixLen := len([]rune(prefix)) // Use rune length for display width
 	indent := 2
 
 	// Calculate column from x position
@@ -1117,68 +1119,104 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.ensureCursorVisible()
 
 	case tea.MouseMsg:
-		if msg.Action == tea.MouseActionPress && msg.Button == tea.MouseButtonLeft {
-			blockIndex := m.getBlockAtY(msg.Y)
-			if blockIndex >= 0 {
-				col := m.getColumnAtX(blockIndex, msg.X)
-				now := time.Now()
+		if msg.Button == tea.MouseButtonLeft {
+			switch msg.Action {
+			case tea.MouseActionPress:
+				blockIndex := m.getBlockAtY(msg.Y)
+				if blockIndex >= 0 {
+					col := m.getColumnAtX(blockIndex, msg.X)
+					now := time.Now()
 
-				// Detect multi-click (within 500ms and same position)
-				const doubleClickThreshold = 500 * time.Millisecond
-				if now.Sub(m.lastClickTime) < doubleClickThreshold &&
-					blockIndex == m.lastClickLine {
-					m.clickCount++
-				} else {
-					m.clickCount = 1
-				}
+					// Detect multi-click (within 500ms and same position)
+					const doubleClickThreshold = 500 * time.Millisecond
+					if now.Sub(m.lastClickTime) < doubleClickThreshold &&
+						blockIndex == m.lastClickLine {
+						m.clickCount++
+					} else {
+						m.clickCount = 1
+					}
 
-				// Update click tracking
-				m.lastClickTime = now
-				m.lastClickLine = blockIndex
-				m.lastClickCol = col
+					// Update click tracking
+					m.lastClickTime = now
+					m.lastClickLine = blockIndex
+					m.lastClickCol = col
 
-				switch m.clickCount {
-				case 1:
-					// Single click: move cursor, clear selection
-					m.clearAllSelections()
-					m.doc.SetCursor(blockIndex)
-					m.doc.CursorCol = col
-					// Toggle checkbox if clicked on checkbox
-					if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
-						// Only toggle if clicking on the checkbox area (prefix)
-						if msg.X < 5 {
-							cb.Toggle()
-							cmd = m.markDirty()
+					switch m.clickCount {
+					case 1:
+						// Single click: move cursor, start potential drag
+						m.clearAllSelections()
+						m.doc.SetCursor(blockIndex)
+						m.doc.CursorCol = col
+						// Start drag selection
+						m.isDragging = true
+						m.charSelect = true
+						m.charSelStartLine = blockIndex
+						m.charSelStartCol = col
+						m.charSelEndLine = blockIndex
+						m.charSelEndCol = col
+						// Toggle checkbox if clicked on checkbox area
+						if cb, ok := m.doc.CurrentBlock().(*block.CheckboxBlock); ok {
+							if msg.X < 5 {
+								cb.Toggle()
+								m.isDragging = false
+								m.clearCharSelection()
+								cmd = m.markDirty()
+							}
+						}
+					case 2:
+						// Double click: select word
+						m.isDragging = false
+						m.doc.SetCursor(blockIndex)
+						start, end := m.getWordBoundsAt(blockIndex, col)
+						if start != end {
+							m.charSelect = true
+							m.charSelStartLine = blockIndex
+							m.charSelStartCol = start
+							m.charSelEndLine = blockIndex
+							m.charSelEndCol = end
+							m.doc.CursorCol = end
+						}
+					default:
+						// Triple click (or more): select whole line
+						m.isDragging = false
+						m.clickCount = 3 // Cap at 3
+						m.doc.SetCursor(blockIndex)
+						blk := m.doc.BlockAt(blockIndex)
+						if blk != nil {
+							content := []rune(blk.Content())
+							m.charSelect = true
+							m.charSelStartLine = blockIndex
+							m.charSelStartCol = 0
+							m.charSelEndLine = blockIndex
+							m.charSelEndCol = len(content)
+							m.doc.CursorCol = len(content)
 						}
 					}
-				case 2:
-					// Double click: select word
-					m.doc.SetCursor(blockIndex)
-					start, end := m.getWordBoundsAt(blockIndex, col)
-					if start != end {
-						m.charSelect = true
-						m.charSelStartLine = blockIndex
-						m.charSelStartCol = start
+					m.ensureCursorVisible()
+				}
+
+			case tea.MouseActionMotion:
+				// Drag to extend selection (only within same line for now)
+				if m.isDragging {
+					blockIndex := m.getBlockAtY(msg.Y)
+					if blockIndex >= 0 && blockIndex == m.charSelStartLine {
+						col := m.getColumnAtX(blockIndex, msg.X)
 						m.charSelEndLine = blockIndex
-						m.charSelEndCol = end
-						m.doc.CursorCol = end
-					}
-				default:
-					// Triple click (or more): select whole line
-					m.clickCount = 3 // Cap at 3
-					m.doc.SetCursor(blockIndex)
-					blk := m.doc.BlockAt(blockIndex)
-					if blk != nil {
-						content := []rune(blk.Content())
-						m.charSelect = true
-						m.charSelStartLine = blockIndex
-						m.charSelStartCol = 0
-						m.charSelEndLine = blockIndex
-						m.charSelEndCol = len(content)
-						m.doc.CursorCol = len(content)
+						m.charSelEndCol = col
+						m.doc.CursorCol = col
 					}
 				}
-				m.ensureCursorVisible()
+
+			case tea.MouseActionRelease:
+				// End drag
+				if m.isDragging {
+					m.isDragging = false
+					// If no actual selection was made (start == end), clear selection
+					if m.charSelStartLine == m.charSelEndLine &&
+						m.charSelStartCol == m.charSelEndCol {
+						m.clearCharSelection()
+					}
+				}
 			}
 		}
 	}

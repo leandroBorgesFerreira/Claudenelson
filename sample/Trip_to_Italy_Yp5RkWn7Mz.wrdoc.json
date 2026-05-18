@@ -60,7 +60,7 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Vatican City - St. Peter's Basilica and Sistine Chapel",
+            "text": "Sistine Chapel",
             "position": 5
         },
         {
@@ -129,7 +129,7 @@
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Ponte Vecchio - Historic bridge with shops",
+            "text": "- Historic bridge with shops",
             "position": 12
         },
         {
@@ -286,7 +286,7 @@
             "position": 27
         },
         {
-            "id": "Mpogf2sH9N",
+            "id": "Dh887J6GQY",
             "type": {
                 "name": "message",
                 "number": 0
@@ -295,7 +295,7 @@
         }
     ],
     "createdAt": 1776610800000,
-    "lastUpdatedAt": 1779127067029,
+    "lastUpdatedAt": 1779127460515,
     "parentId": "root",
     "isLocked": false,
     "isFavorite": false,
