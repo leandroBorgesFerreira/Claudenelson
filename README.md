@@ -120,7 +120,6 @@ The undo system efficiently stores only the changed blocks (not the entire docum
 | Key | Action |
 |-----|--------|
 | `Ctrl+C` | Save and quit |
-| Mouse click | Select block / Toggle checkbox |
 
 ## Document Format
 

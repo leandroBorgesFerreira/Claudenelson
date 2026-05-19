@@ -337,7 +337,6 @@ var menuCmd = &cobra.Command{
 
 			editorProgram := tea.NewProgram(
 				editor.New(m.selected.FilePath),
-				tea.WithMouseCellMotion(),
 			)
 
 			if _, err := editorProgram.Run(); err != nil {

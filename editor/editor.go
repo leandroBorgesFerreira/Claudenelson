@@ -58,15 +58,6 @@ type Model struct {
 	lastBlockState    *undo.BlockState // State before current edit session
 	lastBlockIndex    int              // Index of block being edited
 	pendingUndoRecord bool             // Whether we need to record an undo entry
-	// Double-click tracking
-	lastClickTime time.Time // Time of last mouse click
-	lastClickLine int       // Line of last mouse click
-	lastClickCol  int       // Column of last mouse click
-	clickCount    int       // Number of consecutive clicks (1=single, 2=double for word, 3=triple for line)
-	// Drag selection
-	isDragging bool // Whether mouse is being dragged for selection
-	// Hover tracking
-	hoveredLine int // Line currently being hovered (-1 if none)
 	// Multi-line handle selection
 	selectedLines map[int]bool // Lines selected via handle clicks
 }
@@ -108,7 +99,6 @@ func New(savePath string) Model {
 		dirty:          false,
 		undoManager:    undo.NewManager(100), // Keep up to 100 undo entries
 		lastBlockIndex: -1,
-		hoveredLine:    -1,
 		selectedLines:  make(map[int]bool),
 	}
 }
@@ -129,7 +119,7 @@ func (m *Model) markDirty() tea.Cmd {
 
 // Init implements tea.Model
 func (m Model) Init() tea.Cmd {
-	return tea.EnableMouseAllMotion
+	return nil
 }
 
 // Update handles messages and updates the model
@@ -447,10 +437,6 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.width = msg.Width
 		m.height = msg.Height
 		m.ensureCursorVisible()
-
-	case tea.MouseMsg:
-		// Delegate mouse handling to block drawers
-		cmd = m.handleMouseEvent(msg)
 	}
 
 	return m, cmd
@@ -511,7 +497,6 @@ func (m Model) View() string {
 			SelectionStart:   selStart,
 			SelectionEnd:     selEnd,
 			LineSelected:     lineSelected,
-			IsHovered:        i == m.hoveredLine,
 			IsHandleSelected: handleSelected,
 		}
 

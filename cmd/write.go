@@ -19,7 +19,6 @@ var writeCmd = &cobra.Command{
 	Run: func(cmd *cobra.Command, args []string) {
 		p := tea.NewProgram(
 			editor.New(filePath),
-			tea.WithMouseCellMotion(),
 		)
 
 		if _, err := p.Run(); err != nil {
