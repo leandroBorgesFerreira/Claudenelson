@@ -119,6 +119,7 @@ The undo system efficiently stores only the changed blocks (not the entire docum
 ### Other
 | Key | Action |
 |-----|--------|
+| `Esc` | Save and quit (or exit selection mode) |
 | `Ctrl+C` | Save and quit |
 
 ## Document Format

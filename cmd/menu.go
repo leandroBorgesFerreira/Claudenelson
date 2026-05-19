@@ -582,29 +582,36 @@ var menuCmd = &cobra.Command{
 			}
 		}
 
-		// Run the menu
-		model := newMenuModel(searchPath)
-		p := tea.NewProgram(model, tea.WithAltScreen())
+		// Loop: menu -> editor -> menu
+		for {
+			// Run the menu
+			model := newMenuModel(searchPath)
+			p := tea.NewProgram(model, tea.WithAltScreen())
 
-		finalModel, err := p.Run()
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error running menu: %v\n", err)
-			os.Exit(1)
-		}
+			finalModel, err := p.Run()
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error running menu: %v\n", err)
+				os.Exit(1)
+			}
 
-		// Check if a document was selected
-		if m, ok := finalModel.(menuModel); ok && m.selected != nil {
+			// Check if a document was selected
+			m, ok := finalModel.(menuModel)
+			if !ok || m.selected == nil {
+				// User quit without selecting - exit
+				break
+			}
+
 			// Launch the editor with the selected document
-			fmt.Printf("Opening: %s\n", m.selected.FilePath)
-
 			editorProgram := tea.NewProgram(
 				editor.New(m.selected.FilePath),
+				tea.WithAltScreen(),
 			)
 
 			if _, err := editorProgram.Run(); err != nil {
 				fmt.Fprintf(os.Stderr, "Error running editor: %v\n", err)
 				os.Exit(1)
 			}
+			// After editor exits, loop back to menu
 		}
 	},
 }

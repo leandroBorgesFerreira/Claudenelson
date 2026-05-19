@@ -396,13 +396,19 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 
 		case "esc":
-			// Escape key exits selection modes without applying
+			// Escape key exits selection modes without applying, or quits editor
 			if m.multiLineSelect {
 				m.clearMultiLineSelection()
 			} else if m.charSelect {
 				m.clearCharSelection()
 			} else if m.highlightMode {
 				m.exitHighlightMode()
+			} else {
+				// No selection mode active - save and quit
+				if m.dirty {
+					persistence.Save(m.doc, m.savePath)
+				}
+				return m, tea.Quit
 			}
 
 		default:
