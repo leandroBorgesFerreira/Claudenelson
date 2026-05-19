@@ -1,0 +1,34 @@
+{
+    "id": "doc35xxxxx",
+    "title": "Sample Document 35",
+    "workspaceId": "disconnected_user",
+    "content": [
+        {
+            "id": "title_35",
+            "type": { "name": "title", "number": 11 },
+            "text": "Sample Document 35",
+            "position": 0
+        },
+        {
+            "id": "para1_35",
+            "type": { "name": "message", "number": 0 },
+            "text": "This is the first paragraph of document number 35.",
+            "position": 1
+        },
+        {
+            "id": "para2_35",
+            "type": { "name": "message", "number": 0 },
+            "text": "Here is some more content to show in the preview.",
+            "position": 2
+        },
+        {
+            "id": "para3_35",
+            "type": { "name": "message", "number": 0 },
+            "text": "Third line of preview text for testing purposes.",
+            "position": 3
+        }
+    ],
+    "createdAt": 1776609896651,
+    "lastUpdatedAt": 1776609896651,
+    "parentId": "root"
+}

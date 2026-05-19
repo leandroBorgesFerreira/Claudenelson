@@ -1,0 +1,57 @@
+{
+    "id": "doc50xxxxx",
+    "title": "Sample Document 50",
+    "workspaceId": "disconnected_user",
+    "content": [
+        {
+            "id": "block-1",
+            "type": {
+                "name": "title",
+                "number": 11
+            },
+            "text": "Sample Document 50",
+            "position": 0
+        },
+        {
+            "id": "block-2",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "This is the first paragraph of document number 50.",
+            "position": 1
+        },
+        {
+            "id": "block-3",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Here is some more content to show in the preview.",
+            "position": 2
+        },
+        {
+            "id": "block-4",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "e of preview text for testing purposes.",
+            "position": 3
+        },
+        {
+            "id": "uQTdqrs6mQ",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 4
+        }
+    ],
+    "createdAt": 1776609896651,
+    "lastUpdatedAt": 1779203257340,
+    "parentId": "root",
+    "isLocked": false,
+    "isFavorite": false,
+    "deleted": false
+}
