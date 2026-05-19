@@ -417,24 +417,22 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				if m.charSelect {
 					// Delete selection then insert character
 					m.deleteCharSelection()
+				}
+				m.clearAllSelections()
+				if m.highlightMode {
+					cmd = m.applyHighlightAndExit()
+				} else {
 					m.captureCurrentBlockState()
 					style := m.currentStyle()
 					for _, r := range msg.Runes {
-						m.doc.InsertCharWithFormat(r, style)
-					}
-					cmd = m.markDirty()
-				} else {
-					m.clearAllSelections()
-					if m.highlightMode {
-						cmd = m.applyHighlightAndExit()
-					} else {
-						m.captureCurrentBlockState()
-						style := m.currentStyle()
-						for _, r := range msg.Runes {
+						// Handle newline characters by creating new blocks
+						if r == '\n' || r == '\r' {
+							m.handleEnter()
+						} else {
 							m.doc.InsertCharWithFormat(r, style)
 						}
-						cmd = m.markDirty()
 					}
+					cmd = m.markDirty()
 				}
 			}
 		}

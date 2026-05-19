@@ -4,31 +4,124 @@
     "workspaceId": "disconnected_user",
     "content": [
         {
-            "id": "title_1",
-            "type": { "name": "title", "number": 11 },
+            "id": "block-1",
+            "type": {
+                "name": "title",
+                "number": 11
+            },
             "text": "Sample Document 1",
             "position": 0
         },
         {
-            "id": "para1_1",
-            "type": { "name": "message", "number": 0 },
+            "id": "block-2",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
             "text": "This is the first paragraph of document number 1.",
             "position": 1
         },
         {
-            "id": "para2_1",
-            "type": { "name": "message", "number": 0 },
+            "id": "block-3",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
             "text": "Here is some more content to show in the preview.",
             "position": 2
         },
         {
-            "id": "para3_1",
-            "type": { "name": "message", "number": 0 },
+            "id": "block-4",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
             "text": "Third line of preview text for testing purposes.",
             "position": 3
+        },
+        {
+            "id": "block-5",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 4
+        },
+        {
+            "id": "block-6",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "This is the first paragraph of document number 1.",
+            "position": 5
+        },
+        {
+            "id": "block-7",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Here is some more content to show in the preview.",
+            "position": 6
+        },
+        {
+            "id": "block-8",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Third line of preview text for testing purposes.",
+            "position": 7
+        },
+        {
+            "id": "block-9",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 8
+        },
+        {
+            "id": "block-10",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "This is the first paragraph of document number 1.",
+            "position": 9
+        },
+        {
+            "id": "block-11",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Here is some more content to show in the preview.",
+            "position": 10
+        },
+        {
+            "id": "block-12",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "Third line of preview text for testing purposes.",
+            "position": 11
+        },
+        {
+            "id": "O7yTuipM5n",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 12
         }
     ],
     "createdAt": 1776609896651,
-    "lastUpdatedAt": 1776609896651,
-    "parentId": "root"
+    "lastUpdatedAt": 1779204473521,
+    "parentId": "root",
+    "isLocked": false,
+    "isFavorite": false,
+    "deleted": false
 }

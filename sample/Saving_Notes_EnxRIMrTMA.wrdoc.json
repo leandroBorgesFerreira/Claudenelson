@@ -4,7 +4,7 @@
     "workspaceId": "disconnected_user",
     "content": [
         {
-            "id": "block-33",
+            "id": "block-1",
             "type": {
                 "name": "title",
                 "number": 11
@@ -13,7 +13,7 @@
             "position": 0
         },
         {
-            "id": "block-34",
+            "id": "block-2",
             "type": {
                 "name": "message",
                 "number": 0
@@ -22,7 +22,7 @@
             "position": 1
         },
         {
-            "id": "block-35",
+            "id": "block-3",
             "type": {
                 "name": "message",
                 "number": 0
@@ -37,7 +37,7 @@
             ]
         },
         {
-            "id": "block-36",
+            "id": "block-4",
             "type": {
                 "name": "message",
                 "number": 0
@@ -52,7 +52,7 @@
             ]
         },
         {
-            "id": "block-37",
+            "id": "block-5",
             "type": {
                 "name": "message",
                 "number": 0
@@ -60,7 +60,7 @@
             "position": 4
         },
         {
-            "id": "block-38",
+            "id": "block-6",
             "type": {
                 "name": "message",
                 "number": 0
@@ -69,7 +69,7 @@
             "position": 5
         },
         {
-            "id": "block-39",
+            "id": "block-7",
             "type": {
                 "name": "message",
                 "number": 0
@@ -77,25 +77,24 @@
             "position": 6
         },
         {
-            "id": "block-40",
+            "id": "block-32",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "asd",
+            "text": "asd asd\r   asd\r   asd\r\r   With Wrurely stores your notes witWith Wrurely stores your notes wititeiteopia, your notes are always yours! We save th\r\r",
             "position": 7
         },
         {
-            "id": "block-41",
+            "id": "block-33",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "asd",
             "position": 8
         },
         {
-            "id": "block-42",
+            "id": "block-8",
             "type": {
                 "name": "message",
                 "number": 0
@@ -104,24 +103,25 @@
             "position": 9
         },
         {
-            "id": "block-43",
+            "id": "block-9",
             "type": {
                 "name": "message",
                 "number": 0
             },
+            "text": "asd",
             "position": 10
         },
         {
-            "id": "block-62",
+            "id": "block-10",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "   asd\r   asd\r   asd\r\r\r   With Wrurely stores your notes witWith Wrurely stores your notes wititeiteopia, your notes are always yours! We save them in JSON instead of\r",
+            "text": "asd",
             "position": 11
         },
         {
-            "id": "block-63",
+            "id": "block-11",
             "type": {
                 "name": "message",
                 "number": 0
@@ -129,7 +129,7 @@
             "position": 12
         },
         {
-            "id": "block-44",
+            "id": "block-34",
             "type": {
                 "name": "message",
                 "number": 0
@@ -137,16 +137,16 @@
             "position": 13
         },
         {
-            "id": "block-45",
+            "id": "block-37",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "With Wrurely stores your notes witWith Wrurely stores your notes wititeiteopia, your notes are always yours! We save them in JSON instead of a proprietary format, and you can easily export them to Markdown. No lock-in—just complete freedom to use your data however you like!",
+            "text": "asdasd asd\r   asd\r   asd\r\r   With Wrurely stores your notes witWith Wrurely stores your notes wititeiteopia, your notes are always yours! We save th\r\r",
             "position": 14
         },
         {
-            "id": "block-46",
+            "id": "block-35",
             "type": {
                 "name": "message",
                 "number": 0
@@ -154,7 +154,7 @@
             "position": 15
         },
         {
-            "id": "block-47",
+            "id": "block-36",
             "type": {
                 "name": "message",
                 "number": 0
@@ -162,25 +162,24 @@
             "position": 16
         },
         {
-            "id": "block-48",
+            "id": "block-12",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "securely stores your notes within the app",
+            "text": "   asd\r   asd\r   asd\r\r\r   With Wrurely stores your notes witWith Wrurely stores your notes wititeiteopia, your notes are always yours! We save them in JSON instead of\r",
             "position": 17
         },
         {
-            "id": "block-49",
+            "id": "block-13",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "securely stores your notes within the app",
             "position": 18
         },
         {
-            "id": "block-50",
+            "id": "block-14",
             "type": {
                 "name": "message",
                 "number": 0
@@ -188,25 +187,24 @@
             "position": 19
         },
         {
-            "id": "block-51",
+            "id": "block-15",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "securely stores your notes within the app",
+            "text": "With Wrurely stores your notes witWith Wrurely stores your notes wititeiteopia, your notes are always yours! We save them in JSON instead of a proprietary format, and you can easily export them to Markdown. No lock-in—just complete freedom to use your data however you like!",
             "position": 20
         },
         {
-            "id": "block-52",
+            "id": "block-16",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "text": "securely stores your notes within the app",
             "position": 21
         },
         {
-            "id": "block-53",
+            "id": "block-17",
             "type": {
                 "name": "message",
                 "number": 0
@@ -214,13 +212,65 @@
             "position": 22
         },
         {
-            "id": "block-56",
+            "id": "block-18",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "securely stores your notes within the app",
+            "position": 23
+        },
+        {
+            "id": "block-19",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "securely stores your notes within the app",
+            "position": 24
+        },
+        {
+            "id": "block-20",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 25
+        },
+        {
+            "id": "block-21",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "securely stores your notes within the app",
+            "position": 26
+        },
+        {
+            "id": "block-22",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "securely stores your notes within the app",
+            "position": 27
+        },
+        {
+            "id": "block-23",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 28
+        },
+        {
+            "id": "block-24",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "securely stores your notes app",
-            "position": 23,
+            "position": 29,
             "spans": [
                 {
                     "start": 21,
@@ -230,75 +280,108 @@
             ]
         },
         {
-            "id": "block-57",
+            "id": "block-25",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 24
+            "position": 30
         },
         {
-            "id": "block-58",
+            "id": "block-26",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "securely stores your notes app",
-            "position": 25
+            "position": 31
         },
         {
-            "id": "block-54",
+            "id": "block-27",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 26
+            "position": 32
         },
         {
-            "id": "block-55",
+            "id": "block-38",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 27
+            "position": 33
         },
         {
-            "id": "block-59",
+            "id": "block-41",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 34
+        },
+        {
+            "id": "block-40",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "text": "asdasdas - Reverted README.md - removed clipboard documentation\r  - Reverted CLAUDE.md - removed clipboard documentation",
+            "position": 35
+        },
+        {
+            "id": "block-39",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 36
+        },
+        {
+            "id": "block-28",
+            "type": {
+                "name": "message",
+                "number": 0
+            },
+            "position": 37
+        },
+        {
+            "id": "block-29",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "securely stores your notes within the app\r   securely stores your notes within the app\r\r   securely stores your notes within the app\r   securely stores your notes within the app\r\r   securely stores your notes app\r",
-            "position": 28
+            "position": 38
         },
         {
-            "id": "block-60",
+            "id": "block-30",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 29
+            "position": 39
         },
         {
-            "id": "block-61",
+            "id": "block-31",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "securely stores your notes within the app",
-            "position": 30
+            "position": 40
         },
         {
-            "id": "6vxejU3z59",
+            "id": "b243UR9APu",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 31
+            "position": 41
         }
     ],
     "createdAt": 1776609896651,
-    "lastUpdatedAt": 1779204212008,
+    "lastUpdatedAt": 1779204366534,
     "parentId": "root",
     "isLocked": false,
     "isFavorite": false,
