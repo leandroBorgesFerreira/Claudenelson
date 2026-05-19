@@ -3,6 +3,8 @@ package editor
 import (
 	"strings"
 
+	tea "github.com/charmbracelet/bubbletea"
+
 	"claudenelson/editor/block"
 	"claudenelson/editor/undo"
 )
@@ -206,4 +208,40 @@ func (m *Model) mergeWithNextBlock() {
 
 	// Remove next block
 	m.doc.RemoveBlock(m.doc.CursorLine + 1)
+}
+
+func (m *Model) deleteCurrentLine() tea.Cmd {
+	currentBlock := m.doc.CurrentBlock()
+	if currentBlock == nil {
+		return nil
+	}
+
+	// Capture state for undo
+	state := undo.CaptureBlockState(currentBlock)
+	cursorLine := m.doc.CursorLine
+	cursorCol := m.doc.CursorCol
+
+	// If this is the only block, just clear its content
+	if m.doc.BlockCount() == 1 {
+		currentBlock.SetContent("")
+		currentBlock.SetSpans(nil)
+		m.doc.CursorCol = 0
+	} else {
+		// Remove the current block
+		m.doc.RemoveBlock(m.doc.CursorLine)
+
+		// Adjust cursor position
+		if m.doc.CursorLine >= m.doc.BlockCount() {
+			m.doc.CursorLine = m.doc.BlockCount() - 1
+		}
+		m.doc.CursorCol = 0
+	}
+
+	// Record for undo
+	if state != nil {
+		m.undoManager.RecordMultiDelete(cursorLine, []undo.BlockState{*state}, cursorLine, cursorCol)
+	}
+
+	m.ensureCursorVisible()
+	return m.markDirty()
 }

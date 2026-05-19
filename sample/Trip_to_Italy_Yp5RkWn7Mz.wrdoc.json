@@ -4,7 +4,7 @@
     "workspaceId": "disconnected_user",
     "content": [
         {
-            "id": "block-42",
+            "id": "block-1",
             "type": {
                 "name": "title",
                 "number": 11
@@ -13,7 +13,7 @@
             "position": 0
         },
         {
-            "id": "block-43",
+            "id": "block-2",
             "type": {
                 "name": "message",
                 "number": 0
@@ -22,7 +22,7 @@
             "position": 1
         },
         {
-            "id": "block-44",
+            "id": "block-3",
             "type": {
                 "name": "message",
                 "number": 0
@@ -37,7 +37,7 @@
             ]
         },
         {
-            "id": "block-45",
+            "id": "block-4",
             "type": {
                 "name": "message",
                 "number": 0
@@ -46,7 +46,7 @@
             "position": 3
         },
         {
-            "id": "block-46",
+            "id": "block-5",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
@@ -55,7 +55,7 @@
             "position": 4
         },
         {
-            "id": "block-47",
+            "id": "block-6",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
@@ -63,7 +63,7 @@
             "position": 5
         },
         {
-            "id": "block-48",
+            "id": "block-7",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
@@ -71,7 +71,7 @@
             "position": 6
         },
         {
-            "id": "block-49",
+            "id": "block-8",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
@@ -80,159 +80,46 @@
             "position": 7
         },
         {
-            "id": "block-50",
+            "id": "block-9",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Trevi Fountain - Toss a coin and make a wish",
-            "position": 8
+            "text": "Trevi Fountain - Toss a coin and make Pantheon - Remarkable ancient temple\r   • sdf\r   • sd\r   • f\r   • sd\r   • f\r   • sd",
+            "position": 8,
+            "spans": [
+                {
+                    "start": 27,
+                    "end": 36,
+                    "span": "HIGHLIGHT"
+                }
+            ]
         },
         {
-            "id": "block-51",
+            "id": "block-21",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
-            "text": "Pantheon - Remarkable ancient temple",
             "position": 9
         },
         {
-            "id": "block-52",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "sdf",
-            "position": 10
-        },
-        {
-            "id": "block-53",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "sd",
-            "position": 11
-        },
-        {
-            "id": "block-54",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "f",
-            "position": 12
-        },
-        {
-            "id": "block-55",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "sd",
-            "position": 13
-        },
-        {
-            "id": "block-56",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "f",
-            "position": 14
-        },
-        {
-            "id": "block-57",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "sd",
-            "position": 15
-        },
-        {
-            "id": "block-58",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "position": 16
-        },
-        {
-            "id": "block-78",
-            "type": {
-                "name": "message",
-                "number": 0
-            },
-            "text": "asasd",
-            "position": 17
-        },
-        {
-            "id": "block-79",
-            "type": {
-                "name": "message",
-                "number": 0
-            },
-            "position": 18
-        },
-        {
-            "id": "block-80",
-            "type": {
-                "name": "message",
-                "number": 0
-            },
-            "text": "Pantheon - Remarkable ancient temple\r   • sdf\r   • sd\r   • f\r   • sd\r   • f\r   • sd",
-            "position": 19
-        },
-        {
-            "id": "block-75",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "position": 20
-        },
-        {
-            "id": "block-76",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "position": 21
-        },
-        {
-            "id": "block-77",
-            "type": {
-                "name": "unordered_list_item",
-                "number": 16
-            },
-            "text": "f",
-            "position": 22
-        },
-        {
-            "id": "block-59",
+            "id": "block-49",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "Florence",
-            "position": 23,
-            "tags": [
-                {
-                    "tag": "H2",
-                    "position": 0
-                }
-            ]
+            "position": 10
         },
         {
-            "id": "block-60",
+            "id": "block-25",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "The birthplace of the .",
-            "position": 24,
+            "position": 11,
             "spans": [
                 {
                     "start": 0,
@@ -247,40 +134,40 @@
             ]
         },
         {
-            "id": "block-61",
+            "id": "block-26",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "∫St. Mark's Square - Heart of Venice",
-            "position": 25
+            "position": 12
         },
         {
-            "id": "block-62",
+            "id": "block-27",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Grand Canal - Take a gondola ride",
-            "position": 26
+            "position": 13
         },
         {
-            "id": "block-63",
+            "id": "block-28",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Murano Island - Famous for glassmaking",
-            "position": 27
+            "position": 14
         },
         {
-            "id": "block-64",
+            "id": "block-29",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "Amalfi Coast",
-            "position": 28,
+            "position": 15,
             "tags": [
                 {
                     "tag": "H2",
@@ -289,49 +176,49 @@
             ]
         },
         {
-            "id": "block-65",
+            "id": "block-30",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "Stunning coastal scenery in southern Italy.",
-            "position": 29
+            "position": 16
         },
         {
-            "id": "block-66",
+            "id": "block-31",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Positano - Colorful cliffside village",
-            "position": 30
+            "position": 17
         },
         {
-            "id": "block-67",
+            "id": "block-32",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Ravello - Gardens with panoramic views",
-            "position": 31
+            "position": 18
         },
         {
-            "id": "block-68",
+            "id": "block-33",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Amalfi - Historic maritime town",
-            "position": 32
+            "position": 19
         },
         {
-            "id": "block-69",
+            "id": "block-34",
             "type": {
                 "name": "message",
                 "number": 0
             },
             "text": "Travel Tips",
-            "position": 33,
+            "position": 20,
             "tags": [
                 {
                     "tag": "H2",
@@ -340,52 +227,52 @@
             ]
         },
         {
-            "id": "block-70",
+            "id": "block-35",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Best time to visit: April to June or September to October",
-            "position": 34
+            "position": 21
         },
         {
-            "id": "block-71",
+            "id": "block-36",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Book popular attractions in advance",
-            "position": 35
+            "position": 22
         },
         {
-            "id": "block-72",
+            "id": "block-37",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "Learn a few Italian phrases - locals appreciate it!",
-            "position": 36
+            "position": 23
         },
         {
-            "id": "block-73",
+            "id": "block-38",
             "type": {
                 "name": "unordered_list_item",
                 "number": 16
             },
             "text": "ry local cuisine: pasta, pizza, gelato, and espresso",
-            "position": 37
+            "position": 24
         },
         {
-            "id": "IxWicxGfzH",
+            "id": "tTLrQ5HzZw",
             "type": {
                 "name": "message",
                 "number": 0
             },
-            "position": 38
+            "position": 25
         }
     ],
     "createdAt": 1776610800000,
-    "lastUpdatedAt": 1779204426016,
+    "lastUpdatedAt": 1779205009743,
     "parentId": "root",
     "isLocked": false,
     "isFavorite": false,

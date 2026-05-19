@@ -329,6 +329,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Redo
 			cmd = m.performRedo()
 
+		case "ctrl+d":
+			// Delete current line
+			cmd = m.deleteCurrentLine()
+
 		case "backspace":
 			if m.hasHandleSelection() {
 				cmd = m.deleteHandleSelectedLines()
