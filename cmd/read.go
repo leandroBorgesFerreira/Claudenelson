@@ -192,6 +192,6 @@ func applySpanFormatting(content string, b block.Block) string {
 }
 
 func init() {
-	readCmd.Flags().StringVarP(&readFilePath, "file", "f", "document.json", "Path to document file")
+	readCmd.Flags().StringVarP(&readFilePath, "file", "f", "document.wrdoc.json", "Path to document file")
 	rootCmd.AddCommand(readCmd)
 }

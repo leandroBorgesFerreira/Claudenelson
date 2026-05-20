@@ -67,16 +67,16 @@ func New(savePath string) Model {
 	r := drawer.NewDrawerRegistry()
 	r.RegisterAll()
 
-	if savePath != "" {
-        if firstDot := strings.Index(savePath, "."); firstDot != -1 {
-            savePath = savePath[:firstDot] + ".wrdoc.json"
-        } else {
-            // If there is no dot at all, just append it
-            savePath = savePath + ".wrdoc.json"
+	var doc *document.Document
+
+	// Try to load existing document from file
+    if savePath != "" {
+        if _, err := os.Stat(savePath); err == nil {
+            if loadedDoc, err := persistence.Load(savePath, f); err == nil {
+                doc = loadedDoc
+            }
         }
     }
-
-	var doc *document.Document
 
 	// If no document was loaded, create with sample content
 	if doc == nil {
