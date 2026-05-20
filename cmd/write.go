@@ -29,6 +29,6 @@ var writeCmd = &cobra.Command{
 }
 
 func init() {
-	writeCmd.Flags().StringVarP(&filePath, "file", "f", "document.json", "Path to save/load document")
+	writeCmd.Flags().StringVarP(&filePath, "file", "f", "document.wrdoc.json", "Path to save/load document")
 	rootCmd.AddCommand(writeCmd)
 }
