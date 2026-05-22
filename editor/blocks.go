@@ -245,3 +245,31 @@ func (m *Model) deleteCurrentLine() tea.Cmd {
 	m.ensureCursorVisible()
 	return m.markDirty()
 }
+
+// toggleCheckbox toggles the checked state of a checkbox block
+func (m *Model) toggleCheckbox() tea.Cmd {
+	currentBlock := m.doc.CurrentBlock()
+	if currentBlock == nil {
+		return nil
+	}
+
+	// Check if it's a checkbox block
+	checkbox, ok := currentBlock.(*block.CheckboxBlock)
+	if !ok {
+		return nil
+	}
+
+	// Capture state for undo
+	oldState := undo.CaptureBlockState(currentBlock)
+	cursorLine := m.doc.CursorLine
+	cursorCol := m.doc.CursorCol
+
+	// Toggle the checkbox
+	checkbox.Toggle()
+
+	// Record for undo
+	newState := undo.CaptureBlockState(currentBlock)
+	m.undoManager.RecordModify(cursorLine, oldState, newState, cursorLine, cursorCol)
+
+	return m.markDirty()
+}

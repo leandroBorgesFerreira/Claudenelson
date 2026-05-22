@@ -333,6 +333,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			// Delete current line
 			cmd = m.deleteCurrentLine()
 
+		case "ctrl+t":
+			// Toggle checkbox checked state
+			cmd = m.toggleCheckbox()
+
 		case "backspace":
 			if m.hasHandleSelection() {
 				cmd = m.deleteHandleSelectedLines()
