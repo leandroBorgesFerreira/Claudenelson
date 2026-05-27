@@ -61,10 +61,15 @@ var (
 )
 
 var readCmd = &cobra.Command{
-	Use:   "read",
+	Use:   "read [file]",
 	Short: "Print document contents to terminal",
 	Long:  "Reads a document file and prints its formatted contents to the terminal.",
+	Args: cobra.MatchAll(cobra.ExactArgs(1), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) > 0 {
+            readFilePath = args[0]
+        }
+
 		if _, err := os.Stat(readFilePath); os.IsNotExist(err) {
 			fmt.Fprintf(os.Stderr, "Error: file not found: %s\n", readFilePath)
 			os.Exit(1)
@@ -192,6 +197,5 @@ func applySpanFormatting(content string, b block.Block) string {
 }
 
 func init() {
-	readCmd.Flags().StringVarP(&readFilePath, "file", "f", "document.wrdoc.json", "Path to document file")
 	rootCmd.AddCommand(readCmd)
 }

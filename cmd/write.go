@@ -13,10 +13,18 @@ import (
 var filePath string
 
 var writeCmd = &cobra.Command{
-	Use:   "write",
+	Use:   "write [file]",
 	Short: "Launch the text editor",
 	Long:  "Launches the BubbleTea-based text editor. Loads existing document if file exists, auto-saves on changes.",
+	Args: cobra.MatchAll(cobra.MaximumNArgs(1), cobra.OnlyValidArgs),
 	Run: func(cmd *cobra.Command, args []string) {
+		filePath = "document.wrdoc.json"
+
+        // Overwrite it if the user provided a file path positional argument
+        if len(args) > 0 {
+            filePath = args[0]
+        }
+
 		p := tea.NewProgram(
 			editor.New(filePath),
 		)
@@ -28,7 +36,6 @@ var writeCmd = &cobra.Command{
 	},
 }
 
-func init() {
-	writeCmd.Flags().StringVarP(&filePath, "file", "f", "document.wrdoc.json", "Path to save/load document")
+func init() {	
 	rootCmd.AddCommand(writeCmd)
 }
