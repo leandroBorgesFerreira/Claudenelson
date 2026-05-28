@@ -14,11 +14,8 @@ import (
   "path/filepath"
 
   "encoding/json"
+  "claudenelson/auth"
 )
-
-type Config struct {
-	Token string `json:"token"`
-}
 
 // loginSuccessHTML is what the user sees in the browser after successful login
 const loginSuccessHTML = `
@@ -116,7 +113,7 @@ func saveToken(token string) error {
 		return err
 	}
 
-	cfg := Config{
+	cfg := auth.AuthConfig{
 		Token: token,
 	}
 
